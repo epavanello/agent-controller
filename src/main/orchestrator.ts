@@ -33,6 +33,8 @@ interface AgentState {
    */
   activeId: string | null
   lastStateBySession: Map<string, SessionState>
+  /** Last persisted activity, including a completed offline headless turn. */
+  lastUpdatedAtBySession: Map<string, number>
   /** Closing messages already seen, so a reply is announced exactly once. */
   lastMessageBySession: Map<string, string>
 }
@@ -69,6 +71,7 @@ export class Orchestrator {
       index: -1,
       activeId: null,
       lastStateBySession: new Map(),
+      lastUpdatedAtBySession: new Map(),
       lastMessageBySession: new Map()
     },
     codex: {
@@ -76,6 +79,7 @@ export class Orchestrator {
       index: -1,
       activeId: null,
       lastStateBySession: new Map(),
+      lastUpdatedAtBySession: new Map(),
       lastMessageBySession: new Map()
     }
   }
@@ -310,9 +314,17 @@ export class Orchestrator {
       this.publish()
       return
     }
+    const delivery = await sendToSession(this.agent, session, transcription)
+    if (!delivery.sent) {
+      this.haptic('failure')
+      this.lastError = delivery.message
+      void this.speaker.speak(`Invio a ${AGENTS[this.agent].name} fallito.`)
+      this.publish()
+      return
+    }
     this.haptic('success')
-    sendToSession(this.agent, session, transcription)
     this.lastAnnouncement = `Inviato a ${AGENTS[this.agent].name}: ${session.title}`
+    this.lastError = null
     this.publish()
   }
 
@@ -342,8 +354,10 @@ export class Orchestrator {
       const sessions = await this.store.list(agent)
       const state = this.byAgent[agent]
       const previousBySession = new Map(state.lastStateBySession)
+      const previousUpdatedAt = new Map(state.lastUpdatedAtBySession)
       const previousMessages = new Map(state.lastMessageBySession)
       state.lastStateBySession = new Map(sessions.map((s) => [s.id, s.state]))
+      state.lastUpdatedAtBySession = new Map(sessions.map((s) => [s.id, s.updatedAt]))
       state.lastMessageBySession = new Map(sessions.map((s) => [s.id, s.lastMessage ?? '']))
       const previousIndex = state.index
       state.sessions = sessions
@@ -375,26 +389,35 @@ export class Orchestrator {
       const active = sessions[state.index]
       if (active && agent === this.agent) {
         const previousState = previousBySession.get(active.id)
+        const previousUpdate = previousUpdatedAt.get(active.id)
         const previousMessage = previousMessages.get(active.id)
         const changedState = previousState !== undefined && previousState !== active.state
         const answered =
           previousMessage !== undefined &&
           previousMessage !== (active.lastMessage ?? '') &&
-          active.state === 'waiting'
-        if (changedState || answered) this.announceActivity(active)
+          (active.state === 'waiting' || active.state === 'offline')
+        // An offline resume can start and finish between two polls. Its mtime
+        // still changes even when Claude repeats an identical rate-limit text.
+        const completedOffline =
+          active.state === 'offline' &&
+          previousUpdate !== undefined &&
+          previousUpdate !== active.updatedAt
+        if (changedState || answered || completedOffline) {
+          this.announceActivity(active, answered || completedOffline)
+        }
       }
     }
     this.applyLight()
     this.publish()
   }
 
-  private announceActivity(session: SessionInfo): void {
+  private announceActivity(session: SessionInfo, completed = false): void {
     const name = AGENTS[this.agent].name
     if (session.state === 'working') {
       this.lastAnnouncement = `${name} sta lavorando: ${session.title}`
       return
     }
-    if (session.state !== 'waiting') return
+    if (session.state !== 'waiting' && !(session.state === 'offline' && completed)) return
     this.haptic('warning')
     if (session.question) {
       const question = sanitizeForSpeech(session.question, MAX_QUESTION_SPEECH, true)

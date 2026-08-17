@@ -4,9 +4,18 @@ import { basename, join } from 'node:path'
 import { z } from 'zod'
 import { SessionStateSchema } from '../shared/contracts'
 import type { AgentId, SessionInfo, SessionState } from '../shared/contracts'
+import { listClaudeLiveOwners } from './claudeLive'
+import type { ClaudeLiveOwner } from './claudeLive'
 
 const CODEX_ROOT = join(homedir(), '.codex', 'sessions')
 const CLAUDE_ROOT = join(homedir(), '.claude', 'projects')
+const CLAUDE_DESKTOP_ROOT = join(
+  homedir(),
+  'Library',
+  'Application Support',
+  'Claude',
+  'claude-code-sessions'
+)
 /** Codex keeps the name it shows in its own list out of the rollout file. */
 const CODEX_INDEX = join(homedir(), '.codex', 'session_index.jsonl')
 
@@ -72,6 +81,24 @@ const ClaudeMessageSchema = z.object({
   content: MessageContentSchema.optional(),
   stop_reason: z.string().nullable().optional()
 })
+
+const ClaudeDesktopSessionSchema = z.object({
+  sessionId: z.string(),
+  cliSessionId: z.string().optional(),
+  title: z.string().optional(),
+  cwd: z.string().optional(),
+  originCwd: z.string().optional(),
+  lastActivityAt: z.number().optional(),
+  createdAt: z.number().optional()
+})
+
+interface ClaudeDesktopSession {
+  id: string
+  path: string
+  title: string | null
+  cwd: string | null
+  updatedAt: number
+}
 
 interface ParsedSession {
   /** The agent's closing message, spoken when a turn ends. */
@@ -326,12 +353,24 @@ function parseClaudeSession(path: string, head: string, tail: string): ParsedSes
       summary = speechTitle(parsed.data.summary) ?? summary
       continue
     }
+    if (parsed.data.type === 'user') {
+      const decoded = ClaudeMessageSchema.safeParse(parsed.data.message)
+      if (!decoded.success || decoded.data.role !== 'user') continue
+      const text = contentText(decoded.data.content).trim()
+      // Tool-result user records contain typed blocks without text. Only a
+      // real prompt starts a new turn.
+      if (text) {
+        state = 'working'
+        question = null
+      }
+      continue
+    }
     if (parsed.data.type !== 'assistant') continue
     const decoded = ClaudeMessageSchema.safeParse(parsed.data.message)
     if (!decoded.success) continue
     const stopReason = decoded.data.stop_reason
     if (stopReason === 'tool_use') state = 'working'
-    else if (stopReason === 'end_turn') {
+    else if (stopReason !== null && stopReason !== undefined) {
       state = 'waiting'
       const text = contentText(decoded.data.content).trim()
       question = questionFrom(text)
@@ -349,10 +388,10 @@ function parseClaudeSession(path: string, head: string, tail: string): ParsedSes
   }
 }
 
-async function findSessionFiles(root: string): Promise<string[]> {
+async function findFiles(root: string, suffix: string, maxDepth = 4): Promise<string[]> {
   const results: string[] = []
   const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth > 4) return
+    if (depth > maxDepth) return
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -362,12 +401,51 @@ async function findSessionFiles(root: string): Promise<string[]> {
     for (const entry of entries) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) await walk(path, depth + 1)
-      else if (entry.isFile() && entry.name.endsWith('.jsonl')) results.push(path)
+      else if (entry.isFile() && entry.name.endsWith(suffix)) results.push(path)
     }
   }
   await walk(root, 0)
   return results
 }
+
+async function readClaudeDesktopSessions(): Promise<ClaudeDesktopSession[]> {
+  const files = await findFiles(CLAUDE_DESKTOP_ROOT, '.json', 5)
+  const sessions: ClaudeDesktopSession[] = []
+  await Promise.all(
+    files.map(async (path) => {
+      try {
+        const parsed = ClaudeDesktopSessionSchema.safeParse(
+          JSON.parse(await readFile(path, 'utf8'))
+        )
+        if (!parsed.success) return
+        const metadata = parsed.data
+        sessions.push({
+          // The engine id is the canonical conversation shared by Desktop and
+          // the Claude process that actually owns it.
+          id: metadata.cliSessionId ?? metadata.sessionId,
+          path,
+          title: speechTitle(metadata.title),
+          cwd: metadata.cwd ?? metadata.originCwd ?? null,
+          updatedAt: metadata.lastActivityAt ?? metadata.createdAt ?? 0
+        })
+      } catch {
+        // Desktop writes metadata atomically, but a corrupt historical entry
+        // must not hide the rest of the session catalog.
+      }
+    })
+  )
+  return sessions
+}
+
+const mergeLiveOwner = (session: SessionInfo, owner: ClaudeLiveOwner): SessionInfo => ({
+  ...session,
+  title: speechTitle(owner.title ?? undefined) ?? session.title,
+  cwd: owner.cwd ?? session.cwd,
+  updatedAt: Math.max(session.updatedAt, owner.updatedAt),
+  state: owner.state ?? (session.state === 'unknown' ? 'waiting' : session.state),
+  surface: owner.surface === 'unknown' ? session.surface : owner.surface,
+  live: true
+})
 
 export class SessionStore {
   private readonly cache = new Map<string, { stamp: FileStamp; session: SessionInfo }>()
@@ -377,12 +455,85 @@ export class SessionStore {
   async list(agent: AgentId): Promise<SessionInfo[]> {
     const root = agent === 'codex' ? CODEX_ROOT : CLAUDE_ROOT
     const names = agent === 'codex' ? await this.loadCodexNames() : new Map<string, string>()
-    const files = await findSessionFiles(root)
+    const files = await findFiles(root, '.jsonl')
     const sessions: SessionInfo[] = []
     for (const path of files) {
       sessions.push(await this.load(agent, path, names))
     }
-    return sessions.sort((a, b) => b.updatedAt - a.updatedAt)
+    const complete = agent === 'claude' ? await this.mergeClaudeCatalog(sessions) : sessions
+    return complete.sort((a, b) => b.updatedAt - a.updatedAt)
+  }
+
+  private async mergeClaudeCatalog(transcripts: SessionInfo[]): Promise<SessionInfo[]> {
+    const byId = new Map<string, SessionInfo>()
+    for (const session of transcripts) {
+      const current = byId.get(session.id)
+      if (!current || session.updatedAt > current.updatedAt) byId.set(session.id, session)
+    }
+
+    const [desktopSessions, liveOwners] = await Promise.all([
+      readClaudeDesktopSessions(),
+      listClaudeLiveOwners()
+    ])
+    for (const desktop of desktopSessions) {
+      const current = byId.get(desktop.id)
+      if (current) {
+        byId.set(desktop.id, {
+          ...current,
+          title: desktop.title ?? current.title,
+          cwd: desktop.cwd ?? current.cwd,
+          updatedAt: Math.max(current.updatedAt, desktop.updatedAt),
+          surface: 'desktop'
+        })
+      } else {
+        byId.set(desktop.id, {
+          id: desktop.id,
+          path: desktop.path,
+          title: desktop.title ?? fallbackTitle(desktop.id, desktop.cwd),
+          cwd: desktop.cwd,
+          updatedAt: desktop.updatedAt,
+          state: 'offline',
+          surface: 'desktop',
+          live: false,
+          question: null,
+          lastMessage: null
+        })
+      }
+    }
+
+    // One canonical conversation may have stale duplicate owners after a
+    // crash. Listing uses the newest; sending performs the stricter ambiguity
+    // check and refuses when multiple live sockets still exist.
+    const newestOwner = new Map<string, ClaudeLiveOwner>()
+    for (const owner of liveOwners) {
+      const current = newestOwner.get(owner.sessionId)
+      if (!current || owner.updatedAt > current.updatedAt) newestOwner.set(owner.sessionId, owner)
+    }
+    for (const owner of newestOwner.values()) {
+      const current = byId.get(owner.sessionId)
+      if (current) {
+        byId.set(owner.sessionId, mergeLiveOwner(current, owner))
+      } else {
+        const cwd = owner.cwd
+        byId.set(owner.sessionId, {
+          id: owner.sessionId,
+          path: owner.recordPath,
+          title: speechTitle(owner.title ?? undefined) ?? fallbackTitle(owner.sessionId, owner.cwd),
+          cwd,
+          updatedAt: owner.updatedAt,
+          state: owner.state ?? 'waiting',
+          surface: owner.surface,
+          live: true,
+          question: null,
+          lastMessage: null
+        })
+      }
+    }
+
+    for (const [id, session] of byId) {
+      if (!newestOwner.has(id)) byId.set(id, { ...session, state: 'offline', live: false })
+    }
+    return [...byId.values()]
   }
 
   /** Re-read only when Codex renamed or added a session. */
@@ -441,6 +592,8 @@ export class SessionStore {
         cwd: parsed.cwd,
         updatedAt: stamp.mtimeMs,
         state: validated.success ? validated.data : 'unknown',
+        surface: 'terminal',
+        live: false,
         question: parsed.question,
         lastMessage: parsed.lastMessage
       }
@@ -452,6 +605,8 @@ export class SessionStore {
         cwd: null,
         updatedAt: stamp.mtimeMs,
         state: 'unknown',
+        surface: 'unknown',
+        live: false,
         question: null,
         lastMessage: null
       }

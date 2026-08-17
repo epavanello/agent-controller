@@ -2,24 +2,38 @@
   import { onMount } from 'svelte'
   import Badge from '$lib/components/ui/badge/badge.svelte'
   import Button from '$lib/components/ui/button/button.svelte'
-  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card/index.js'
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+  } from '$lib/components/ui/card/index.js'
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import { AGENTS } from '@shared/contracts'
   import type { AgentId, AppSnapshot } from '@shared/contracts'
 
   let snapshot = $state<AppSnapshot | null>(null)
 
-  const stateLabel: Record<'working' | 'waiting' | 'unknown', string> = {
+  const stateLabel: Record<'working' | 'waiting' | 'offline' | 'unknown', string> = {
     working: 'Lavorando',
     waiting: 'In attesa',
+    offline: 'Offline',
     unknown: 'Sconosciuto'
   }
 
-  const stateTone = (state: 'working' | 'waiting' | 'unknown' | null): string => {
+  const stateTone = (state: 'working' | 'waiting' | 'offline' | 'unknown' | null): string => {
     if (state === 'working') return 'default'
     if (state === 'waiting') return 'outline'
     return 'secondary'
   }
+
+  const surfaceLabel = {
+    terminal: 'Terminale',
+    vscode: 'VS Code',
+    desktop: 'Desktop',
+    unknown: 'Sconosciuta'
+  } as const
 
   const agent = $derived(
     snapshot ? AGENTS[snapshot.agent] : { id: 'claude' as AgentId, name: '—', color: '#f97316' }
@@ -115,6 +129,7 @@
             </div>
             <div class="flex flex-col gap-1 text-xs text-muted-foreground">
               <span class="line-clamp-1">id: {activeSession.id}</span>
+              <span>superficie: {surfaceLabel[activeSession.surface]}</span>
               {#if activeSession.cwd}
                 <span class="line-clamp-1">cwd: {activeSession.cwd}</span>
               {/if}
@@ -265,7 +280,11 @@
         </CardHeader>
         <CardContent>
           <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-            {@render MappingRow({ button: 'L2', action: 'Agente Claude', accent: 'text-orange-400' })}
+            {@render MappingRow({
+              button: 'L2',
+              action: 'Agente Claude',
+              accent: 'text-orange-400'
+            })}
             {@render MappingRow({ button: 'R2', action: 'Agente Codex', accent: 'text-sky-400' })}
             {@render MappingRow({ button: 'L1', action: 'Sessione precedente' })}
             {@render MappingRow({ button: 'R1', action: 'Sessione successiva' })}

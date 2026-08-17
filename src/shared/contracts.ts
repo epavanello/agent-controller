@@ -14,17 +14,22 @@ export const AGENTS = {
   codex: { id: 'codex', name: 'Codex', color: '#38bdf8' }
 } as const satisfies Record<AgentId, AgentMeta>
 
-export const SessionStateSchema = z.enum(['working', 'waiting', 'unknown'])
+export const SessionStateSchema = z.enum(['working', 'waiting', 'offline', 'unknown'])
 export type SessionState = z.infer<typeof SessionStateSchema>
+
+export const SessionSurfaceSchema = z.enum(['terminal', 'vscode', 'desktop', 'unknown'])
+export type SessionSurface = z.infer<typeof SessionSurfaceSchema>
 
 export const SessionInfoSchema = z.object({
   id: z.string(),
-  /** Absolute path of the `.jsonl` this session was parsed from. */
+  /** Absolute path of its transcript or, if absent, its discovery record. */
   path: z.string(),
   title: z.string(),
   cwd: z.string().nullable(),
   updatedAt: z.number(),
   state: SessionStateSchema,
+  surface: SessionSurfaceSchema,
+  live: z.boolean(),
   question: z.string().nullable(),
   /** The agent's closing message, read aloud when a turn ends. */
   lastMessage: z.string().nullable()
