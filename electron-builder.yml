@@ -1,0 +1,47 @@
+appId: com.agentcontroller.app
+productName: Agent Controller
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!native/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!svelte.config.mjs'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+extraResources:
+  - from: native/.build/release/AgentControllerBridge
+    to: native/AgentControllerBridge
+asarUnpack:
+  - resources/**
+win:
+  executableName: agent-controller
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSMicrophoneUsageDescription: Agent Controller registra brevemente dal microfono del DualSense solo mentre tieni premuto il tasto mic.
+    - NSSpeechRecognitionUsageDescription: Agent Controller trascrive la tua voce per inviarla alla sessione selezionata.
+    - NSBluetoothAlwaysUsageDescription: Agent Controller si collega al DualSense via Bluetooth.
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: generic
+  url: https://example.com/auto-updates

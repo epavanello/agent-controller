@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.agentcontroller.bridge</string>
+	<!-- Shown in the macOS permission dialogs the bridge now raises for itself. -->
+	<key>CFBundleName</key>
+	<string>Agent Controller</string>
+	<key>CFBundleExecutable</key>
+	<string>AgentControllerBridge</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Agent Controller registra brevemente dal microfono del DualSense solo mentre tieni premuto il tasto mic.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Agent Controller trascrive la tua voce per inviarla alla sessione selezionata.</string>
+</dict>
+</plist>
