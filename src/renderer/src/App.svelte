@@ -1,321 +1,148 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Badge from '$lib/components/ui/badge/badge.svelte'
-  import Button from '$lib/components/ui/button/button.svelte'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
-  } from '$lib/components/ui/card/index.js'
-  import Separator from '$lib/components/ui/separator/separator.svelte'
+  import ActiveSession from './components/ActiveSession.svelte'
+  import AgentTabs from './components/AgentTabs.svelte'
+  import Cheatsheet from './components/Cheatsheet.svelte'
+  import ControllerPanel from './components/ControllerPanel.svelte'
+  import SessionList from './components/SessionList.svelte'
   import { AGENTS } from '@shared/contracts'
   import type { AgentId, AppSnapshot } from '@shared/contracts'
 
   let snapshot = $state<AppSnapshot | null>(null)
+  /** Ticks so relative times and the stale threshold stay honest between polls. */
+  let now = $state(Date.now())
 
-  const stateLabel: Record<'working' | 'waiting' | 'offline' | 'unknown', string> = {
-    working: 'Lavorando',
-    waiting: 'In attesa',
-    offline: 'Offline',
-    unknown: 'Sconosciuto'
-  }
-
-  const stateTone = (state: 'working' | 'waiting' | 'offline' | 'unknown' | null): string => {
-    if (state === 'working') return 'default'
-    if (state === 'waiting') return 'outline'
-    return 'secondary'
-  }
-
-  const surfaceLabel = {
-    terminal: 'Terminale',
-    vscode: 'VS Code',
-    desktop: 'Desktop',
-    unknown: 'Sconosciuta'
-  } as const
-
-  const agent = $derived(
-    snapshot ? AGENTS[snapshot.agent] : { id: 'claude' as AgentId, name: '—', color: '#f97316' }
-  )
+  const agent = $derived<AgentId>(snapshot?.agent ?? 'claude')
+  const meta = $derived(AGENTS[agent])
+  const current = $derived(snapshot?.byAgent[agent] ?? null)
+  const sessions = $derived(current?.sessions ?? [])
   const activeSession = $derived(
-    snapshot && snapshot.sessionIndex >= 0 ? snapshot.sessions[snapshot.sessionIndex] : null
+    current && current.index >= 0 ? (current.sessions[current.index] ?? null) : null
   )
 
-  const questions = $derived.by(
-    () => snapshot?.sessions.filter((session) => session.question != null) ?? []
-  )
+  const selectAgent = (value: AgentId): void => window.api.selectAgent(value)
+  const selectSession = (delta: -1 | 1): void => window.api.selectSession(delta)
+  const selectSessionId = (id: string): void => window.api.selectSessionId(agent, id)
 
-  const controllerConnected = $derived(snapshot?.controller.connected ?? false)
-  const isUsb = $derived(snapshot?.controller.transport === 'USB')
-  const audioReady = $derived(
-    (snapshot?.audio.speaker.available ?? false) && (snapshot?.audio.microphone.available ?? false)
-  )
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return
+    if (event.key === 'ArrowUp') selectSession(-1)
+    else if (event.key === 'ArrowDown') selectSession(1)
+    else if (event.key === 'ArrowLeft') selectAgent('claude')
+    else if (event.key === 'ArrowRight') selectAgent('codex')
+    else return
+    event.preventDefault()
+  }
 
   onMount(() => {
     const unsubscribe = window.api.onSnapshot((value) => {
       snapshot = value
     })
+    const clock = setInterval(() => (now = Date.now()), 15_000)
     void window.api.ensureMicPermission()
-    return unsubscribe
+    return () => {
+      unsubscribe()
+      clearInterval(clock)
+    }
   })
 </script>
 
-<div class="min-h-screen bg-background p-6 text-sm">
-  <header class="app-region-drag mb-5 flex items-baseline justify-between pl-2">
-    <div>
-      <h1 class="text-lg font-semibold tracking-tight">Agent Controller</h1>
-      <p class="text-xs text-muted-foreground">Orchestratore DualSense per Claude e Codex</p>
+<svelte:window onkeydown={onKeydown} />
+
+<div class="flex h-screen flex-col gap-3 bg-background p-4 text-sm">
+  <header class="app-region-drag flex items-center justify-between gap-3 pt-2 pl-18">
+    <div class="min-w-0">
+      <h1 class="text-base leading-tight font-semibold tracking-tight">Agent Controller</h1>
+      <p class="truncate text-[11px] text-muted-foreground">
+        DualSense · {sessions.length}
+        {sessions.length === 1 ? 'sessione' : 'sessioni'}
+        {meta.name}
+      </p>
     </div>
-    <div class="app-region-no-drag flex gap-2">
-      <Button variant="outline" size="sm" onclick={() => window.api.rescan()}>Riscansiona</Button>
-      <Button variant="outline" size="sm" onclick={() => window.api.reannounce()}>
+    <div class="app-region-no-drag flex shrink-0 gap-2">
+      <button
+        type="button"
+        class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
+        onclick={() => window.api.rescan()}
+      >
+        Riscansiona
+      </button>
+      <button
+        type="button"
+        class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
+        onclick={() => window.api.reannounce()}
+      >
         Riannuncia
-      </Button>
-      <Button
-        variant={snapshot?.recording ? 'default' : 'outline'}
-        size="sm"
+      </button>
+      <button
+        type="button"
+        class="rounded-md border px-2.5 py-1.5 text-xs transition-colors {snapshot?.recording
+          ? 'border-red-500/50 bg-red-500/20 text-red-300'
+          : 'bg-card hover:bg-secondary'}"
         onclick={() => window.api.toggleRecording()}
       >
         {snapshot?.recording ? '■ Stop mic' : '● Mic'}
-      </Button>
+      </button>
     </div>
   </header>
 
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <div class="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Agente</CardTitle>
-          <CardDescription>Selezionato con L2 / R2</CardDescription>
-        </CardHeader>
-        <CardContent class="flex items-center gap-4">
-          <div
-            class="h-14 w-14 rounded-full"
-            style="background: {agent.color}; box-shadow: 0 0 24px {agent.color}"
-          ></div>
-          <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
-              <span class="text-2xl font-bold">{agent.name}</span>
-              {#if snapshot?.agent === 'claude'}
-                <Badge class="border-orange-500/40 bg-orange-500/15 text-orange-400">L2</Badge>
-              {:else}
-                <Badge class="border-sky-500/40 bg-sky-500/15 text-sky-400">R2</Badge>
+  {#if snapshot}
+    <AgentTabs {snapshot} {now} onselect={selectAgent} />
+
+    <main class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(300px,360px)_1fr]">
+      <SessionList
+        {agent}
+        {sessions}
+        {now}
+        index={current?.index ?? -1}
+        activeId={current?.activeSessionId ?? null}
+        onselect={selectSessionId}
+        onstep={selectSession}
+      />
+
+      <div class="flex min-h-0 flex-col gap-3">
+        <!-- Pinned: the selected session must never scroll out of sight. -->
+        <ActiveSession
+          {agent}
+          {now}
+          session={activeSession}
+          position={current?.index ?? -1}
+          total={sessions.length}
+          announcing={snapshot.announcing}
+        />
+
+        <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+          {#if snapshot.recording || snapshot.lastError || snapshot.lastTranscription}
+            <section class="flex flex-col gap-2 rounded-xl border bg-card/40 p-3 text-xs">
+              {#if snapshot.recording}
+                <p class="font-medium text-red-400">
+                  ● Registrazione dal mic del controller — rilascia per inviare
+                </p>
               {/if}
-            </div>
-            <span class="text-xs text-muted-foreground">
-              Luce controller: {agent.color} · pulsa mentre lavora
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Sessione attiva</CardTitle>
-          <CardDescription
-            >L1 / R1 per cambiare · {activeSession
-              ? `${snapshot!.sessionIndex + 1} di ${snapshot!.sessions.length}`
-              : 'nessuna'}</CardDescription
-          >
-        </CardHeader>
-        <CardContent class="flex flex-col gap-3">
-          {#if activeSession}
-            <div class="flex items-center justify-between gap-2">
-              <span class="line-clamp-2 font-medium">{activeSession.title}</span>
-              <Badge variant={stateTone(activeSession.state)}
-                >{stateLabel[activeSession.state]}</Badge
-              >
-            </div>
-            <div class="flex flex-col gap-1 text-xs text-muted-foreground">
-              <span class="line-clamp-1">id: {activeSession.id}</span>
-              <span>superficie: {surfaceLabel[activeSession.surface]}</span>
-              {#if activeSession.cwd}
-                <span class="line-clamp-1">cwd: {activeSession.cwd}</span>
+              {#if snapshot.lastTranscription}
+                <p class="line-clamp-2">
+                  <span class="text-muted-foreground">Ultimo parlato inviato: </span>
+                  {snapshot.lastTranscription}
+                </p>
               {/if}
-            </div>
-            {#if activeSession.question}
-              <Separator />
-              <div class="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2 text-xs">
-                <span class="font-semibold text-orange-400">Domanda aperta · </span>
-                <span class="line-clamp-3">{activeSession.question}</span>
-              </div>
-            {/if}
-          {:else}
-            <p class="text-xs text-muted-foreground">
-              Nessuna sessione {agent.name} trovata. Avvia una sessione CLI (<code>claude</code> o
-              <code>codex</code>) e premi Riscansiona.
-            </p>
-          {/if}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Attività</CardTitle>
-          <CardDescription>Feedback del controller</CardDescription>
-        </CardHeader>
-        <CardContent class="flex flex-col gap-2 text-xs">
-          {#if snapshot?.recording}
-            <div
-              class="rounded-lg border border-red-500/40 bg-red-500/10 p-2 font-medium text-red-400"
-            >
-              ● In registrazione dal mic del controller — rilascia per inviare
-            </div>
-          {/if}
-          {#if snapshot?.announcing}
-            <div
-              class="rounded-lg border border-sky-500/40 bg-sky-500/10 p-2 font-medium text-sky-400"
-            >
-              🔊 Annuncio in cassa…
-            </div>
-          {/if}
-          {#if snapshot?.lastTranscription}
-            <div>
-              <span class="text-muted-foreground">Ultimo parlato inviato: </span>
-              <span class="line-clamp-2">{snapshot.lastTranscription}</span>
-            </div>
-          {/if}
-          {#if snapshot?.lastAnnouncement}
-            <div>
-              <span class="text-muted-foreground">Ultimo annuncio: </span>
-              <span class="line-clamp-2">{snapshot.lastAnnouncement}</span>
-            </div>
-          {/if}
-          {#if snapshot?.lastError}
-            <div
-              class="rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-destructive"
-            >
-              {snapshot.lastError}
-            </div>
-          {/if}
-        </CardContent>
-      </Card>
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Controller</CardTitle>
-          <CardDescription>Cosa vede il controller in questo momento</CardDescription>
-        </CardHeader>
-        <CardContent class="flex flex-col gap-2">
-          <div class="flex flex-wrap gap-2">
-            <Badge variant={controllerConnected ? 'default' : 'secondary'}>
-              {controllerConnected ? 'Connesso' : 'Disconnesso'}
-            </Badge>
-            {#if controllerConnected}
-              <Badge variant={isUsb ? 'default' : 'secondary'}
-                >{snapshot!.controller.transport}</Badge
-              >
-              {#if snapshot!.controller.batteryLevel != null}
-                <Badge variant="secondary">
-                  Batteria {Math.round(snapshot!.controller.batteryLevel * 100)}%
-                </Badge>
-              {/if}
-            {/if}
-          </div>
-          <Separator />
-          <div class="flex flex-col gap-2">
-            {@render CapabilityRow({
-              label: 'Cassa (annunci)',
-              ok: snapshot?.audio.speaker.available ?? false,
-              detail: snapshot?.audio.speaker.reason ?? ''
-            })}
-            {@render CapabilityRow({
-              label: 'Microfono (parla alla sessione)',
-              ok: snapshot?.audio.microphone.available ?? false,
-              detail: snapshot?.audio.microphone.reason ?? ''
-            })}
-            {@render CapabilityRow({
-              label: 'Luce',
-              ok: snapshot?.controller.supportsLight ?? false,
-              detail: snapshot?.controller.supportsLight ? 'Disponibile' : 'Non disponibile'
-            })}
-            {@render CapabilityRow({
-              label: 'Vibrazione',
-              ok: snapshot?.controller.supportsHaptics ?? false,
-              detail: snapshot?.controller.supportsHaptics ? 'Disponibile' : 'Non disponibile'
-            })}
-            {@render CapabilityRow({
-              label: 'Bridge nativo',
-              ok: snapshot?.bridgeAvailable ?? false,
-              detail: snapshot?.bridgeAvailable ? 'Swift helper attivo' : 'Helper non in esecuzione'
-            })}
-          </div>
-          {#if controllerConnected && !isUsb && audioReady === false}
-            <p class="mt-1 text-xs text-muted-foreground">
-              In Bluetooth cassa e microfono del controller non sono disponibili: collega il cavo
-              USB per gli annunci e la voce.
-            </p>
-          {/if}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Domande aperte</CardTitle>
-          <CardDescription>Sessione che aspetta un tuo input</CardDescription>
-        </CardHeader>
-        <CardContent class="flex flex-col gap-2 text-xs">
-          {#if questions.length > 0}
-            {#each questions as session (session.id)}
-              <div class="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2">
-                <span class="font-semibold text-orange-400"
-                  >{AGENTS[snapshot!.agent].name} · {session.title}</span
+              {#if snapshot.lastError}
+                <p
+                  class="rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-destructive"
                 >
-                <p class="mt-1 line-clamp-3 text-muted-foreground">{session.question}</p>
-              </div>
-            {/each}
-          {:else}
-            <p class="text-muted-foreground">Nessuna domanda in sospeso.</p>
+                  {snapshot.lastError}
+                </p>
+              {/if}
+            </section>
           {/if}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Cheatsheet</CardTitle>
-          <CardDescription>Mapping fisso, nessuna configurazione</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-            {@render MappingRow({
-              button: 'L2',
-              action: 'Agente Claude',
-              accent: 'text-orange-400'
-            })}
-            {@render MappingRow({ button: 'R2', action: 'Agente Codex', accent: 'text-sky-400' })}
-            {@render MappingRow({ button: 'L1', action: 'Sessione precedente' })}
-            {@render MappingRow({ button: 'R1', action: 'Sessione successiva' })}
-            {@render MappingRow({ button: 'Mic', action: 'Tieni premuto: parla alla sessione' })}
-            {@render MappingRow({ button: 'Touchpad', action: 'Riscansiona sessioni' })}
-            {@render MappingRow({ button: 'Share', action: 'Riannuncia agente e sessione' })}
-            {@render MappingRow({ button: 'Luce', action: 'Colore agente · pulse = lavorando' })}
-          </div>
-        </CardContent>
-      </Card>
+          <ControllerPanel {snapshot} />
+          <Cheatsheet />
+        </div>
+      </div>
+    </main>
+  {:else}
+    <div class="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+      Avvio dell'orchestratore…
     </div>
-  </div>
+  {/if}
 </div>
-
-{#snippet CapabilityRow(props: { label: string; ok: boolean; detail: string })}
-  <div class="flex items-start justify-between gap-4">
-    <span class="text-muted-foreground">{props.label}</span>
-    <span class="flex items-center gap-2 text-right">
-      <span class="text-muted-foreground">{props.detail}</span>
-      <span class="h-2.5 w-2.5 shrink-0 rounded-full {props.ok ? 'bg-emerald-500' : 'bg-red-500'}"
-      ></span>
-    </span>
-  </div>
-{/snippet}
-
-{#snippet MappingRow(props: { button: string; action: string; accent?: string })}
-  <div class="flex items-center gap-2">
-    <span
-      class="w-16 shrink-0 rounded-md border bg-secondary px-2 py-1 text-center font-mono text-[11px] font-semibold"
-      >{props.button}</span
-    >
-    <span class="text-muted-foreground {props.accent ?? ''}">{props.action}</span>
-  </div>
-{/snippet}

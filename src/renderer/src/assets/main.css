@@ -47,9 +47,34 @@
   --color-ring: var(--ring);
 }
 
+/* The window has a hidden title bar: the header doubles as its drag handle. */
+@utility app-region-drag {
+  -webkit-app-region: drag;
+}
+
+@utility app-region-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* A full-height HUD scrolls inside its panels, so the bars must stay thin. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: oklch(1 0 0 / 12%);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(1 0 0 / 20%);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
   body {
     @apply bg-background text-foreground;

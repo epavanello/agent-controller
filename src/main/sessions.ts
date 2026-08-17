@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { z } from 'zod'
-import { SessionStateSchema } from '../shared/contracts'
+import { MAX_TITLE, sanitizeForSpeech, SessionStateSchema } from '../shared/contracts'
 import type { AgentId, SessionInfo, SessionState } from '../shared/contracts'
 import { listClaudeLiveOwners } from './claudeLive'
 import type { ClaudeLiveOwner } from './claudeLive'
@@ -120,44 +120,19 @@ const isSessionLine = (line: string): boolean => {
   return typeof parsed === 'object' && parsed !== null
 }
 
-const truncate = (text: string, limit = 80): string =>
-  text.length <= limit ? text : `${text.slice(0, limit - 1)}…`
-
-const fallbackTitle = (id: string, cwd: string | null): string => {
-  const short = id.slice(0, 8)
-  const base = cwd?.split('/').filter(Boolean).pop()
-  return base ? `${base} · ${short}` : `Sessione ${short}`
-}
-
-const looksLikePath = (token: string): boolean =>
-  token.length > 3 && token.includes('/') && /^[./~]?[\w@.-]*(?:\/[\w@.-]+)+$/.test(token)
-
-const looksLikeUrl = (token: string): boolean =>
-  /^[a-z][\w+.-]*:\/\//i.test(token) || token.startsWith('www.')
-
 /**
- * Makes text safe to read aloud: path-like tokens (`/var/folders/…`,
- * `./src/…`) and URLs are dropped, or replaced when the meaning depends on
- * them. Read literally they bury the sentence they belong to.
+ * No session id in the title: the HUD shows the id in its own chip, and a
+ * title carrying a hex suffix cannot be read aloud as it is written.
  */
-export const sanitizeForSpeech = (text: string, limit: number, replacePaths = false): string => {
-  const cleaned = text
-    .split(/\s+/)
-    .map((token) => {
-      if (looksLikeUrl(token)) return replacePaths ? 'un link' : ''
-      if (looksLikePath(token)) return replacePaths ? 'il percorso' : ''
-      return token
-    })
-    .filter((token) => token.length > 0)
-    .join(' ')
-    .trim()
-  return truncate(cleaned, limit)
+const fallbackTitle = (cwd: string | null): string => {
+  const base = cwd?.split('/').filter(Boolean).pop()
+  return base ?? 'Sessione senza nome'
 }
 
 /** A title short enough to be read aloud, or null when nothing usable is left. */
 const speechTitle = (text: string | undefined): string | null => {
   if (!text) return null
-  const sanitized = sanitizeForSpeech(text, 60)
+  const sanitized = sanitizeForSpeech(text, MAX_TITLE)
   return sanitized.length >= 4 ? sanitized : null
 }
 
@@ -296,7 +271,7 @@ function parseCodexSession(
     id,
     // The name from Codex's own list first, the opening prompt only when the
     // session has never been named.
-    title: speechTitle(names.get(id)) ?? title ?? fallbackTitle(id, cwd),
+    title: speechTitle(names.get(id)) ?? title ?? fallbackTitle(cwd),
     cwd,
     state,
     question,
@@ -380,7 +355,7 @@ function parseClaudeSession(path: string, head: string, tail: string): ParsedSes
 
   return {
     id,
-    title: generated ?? summary ?? prompt ?? fallbackTitle(id, cwd),
+    title: generated ?? summary ?? prompt ?? fallbackTitle(cwd),
     cwd,
     state,
     question,
@@ -437,15 +412,39 @@ async function readClaudeDesktopSessions(): Promise<ClaudeDesktopSession[]> {
   return sessions
 }
 
+/** True when the parser found no real title and named the session after its folder. */
+const isFallbackTitle = (session: SessionInfo): boolean =>
+  session.title === fallbackTitle(session.cwd)
+
 const mergeLiveOwner = (session: SessionInfo, owner: ClaudeLiveOwner): SessionInfo => ({
   ...session,
-  title: speechTitle(owner.title ?? undefined) ?? session.title,
+  // The live record's `name` is the window label the process runs under
+  // (`agent-controller-e5`), not the name of the conversation. The transcript's
+  // own title — the `ai-title` Claude shows in its list — wins; the label only
+  // fills in for a session that has not been titled yet.
+  title: isFallbackTitle(session)
+    ? (speechTitle(owner.title ?? undefined) ?? session.title)
+    : session.title,
   cwd: owner.cwd ?? session.cwd,
   updatedAt: Math.max(session.updatedAt, owner.updatedAt),
   state: owner.state ?? (session.state === 'unknown' ? 'waiting' : session.state),
   surface: owner.surface === 'unknown' ? session.surface : owner.surface,
   live: true
 })
+
+/**
+ * One conversation can own several rollout files — a resume writes a new one
+ * under the same id. The list is keyed by id everywhere (selection, HUD rows,
+ * announcements), so only the most recent file of each id may survive.
+ */
+const newestById = (sessions: SessionInfo[]): SessionInfo[] => {
+  const byId = new Map<string, SessionInfo>()
+  for (const session of sessions) {
+    const current = byId.get(session.id)
+    if (!current || session.updatedAt > current.updatedAt) byId.set(session.id, session)
+  }
+  return [...byId.values()]
+}
 
 export class SessionStore {
   private readonly cache = new Map<string, { stamp: FileStamp; session: SessionInfo }>()
@@ -461,15 +460,11 @@ export class SessionStore {
       sessions.push(await this.load(agent, path, names))
     }
     const complete = agent === 'claude' ? await this.mergeClaudeCatalog(sessions) : sessions
-    return complete.sort((a, b) => b.updatedAt - a.updatedAt)
+    return newestById(complete).sort((a, b) => b.updatedAt - a.updatedAt)
   }
 
   private async mergeClaudeCatalog(transcripts: SessionInfo[]): Promise<SessionInfo[]> {
-    const byId = new Map<string, SessionInfo>()
-    for (const session of transcripts) {
-      const current = byId.get(session.id)
-      if (!current || session.updatedAt > current.updatedAt) byId.set(session.id, session)
-    }
+    const byId = new Map(newestById(transcripts).map((session) => [session.id, session]))
 
     const [desktopSessions, liveOwners] = await Promise.all([
       readClaudeDesktopSessions(),
@@ -489,7 +484,7 @@ export class SessionStore {
         byId.set(desktop.id, {
           id: desktop.id,
           path: desktop.path,
-          title: desktop.title ?? fallbackTitle(desktop.id, desktop.cwd),
+          title: desktop.title ?? fallbackTitle(desktop.cwd),
           cwd: desktop.cwd,
           updatedAt: desktop.updatedAt,
           state: 'offline',
@@ -518,7 +513,7 @@ export class SessionStore {
         byId.set(owner.sessionId, {
           id: owner.sessionId,
           path: owner.recordPath,
-          title: speechTitle(owner.title ?? undefined) ?? fallbackTitle(owner.sessionId, owner.cwd),
+          title: speechTitle(owner.title ?? undefined) ?? fallbackTitle(owner.cwd),
           cwd,
           updatedAt: owner.updatedAt,
           state: owner.state ?? 'waiting',

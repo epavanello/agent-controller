@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, systemPreferences } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { AgentIdSchema } from '../shared/contracts'
+import { AgentIdSchema, SelectSessionRequestSchema } from '../shared/contracts'
 import type { AppSnapshot } from '../shared/contracts'
 import { NativeBridge } from './nativeBridge'
 import { Orchestrator } from './orchestrator'
@@ -72,6 +72,10 @@ const registerIpc = (): void => {
   })
   ipcMain.on('app:select-session', (_event, delta: unknown) => {
     if (delta === 1 || delta === -1) orchestrator?.selectSession(delta)
+  })
+  ipcMain.on('app:select-session-id', (_event, value: unknown) => {
+    const parsed = SelectSessionRequestSchema.safeParse(value)
+    if (parsed.success) orchestrator?.selectSessionById(parsed.data.agent, parsed.data.id)
   })
   ipcMain.on('app:toggle-recording', () => orchestrator?.toggleRecording())
   ipcMain.on('app:rescan', () => orchestrator?.rescan())

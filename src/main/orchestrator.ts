@@ -1,6 +1,7 @@
-import { AGENTS } from '../shared/contracts'
+import { AGENTS, announceSessionText, sanitizeForSpeech } from '../shared/contracts'
 import type {
   AgentId,
+  AgentSessions,
   AppSnapshot,
   AudioCapabilities,
   BridgeAudioEvent,
@@ -13,7 +14,7 @@ import type {
 import { emptyController, toTransport, unavailableAudio } from '../shared/contracts'
 import type { NativeBridge } from './nativeBridge'
 import { sendToSession } from './senders'
-import { sanitizeForSpeech, SessionStore } from './sessions'
+import { SessionStore } from './sessions'
 import type { Speaker } from './speaker'
 
 const POLL_INTERVAL_MILLISECONDS = 2_500
@@ -49,19 +50,6 @@ const dim = (hex: string, factor: number): string => {
   })
   return `#${channels.join('')}`
 }
-
-/**
- * The id suffix of a fallback title (`progetto · 019f95ab`) disambiguates in
- * the HUD, but read aloud it is a hex spelling nobody can follow.
- */
-const withoutSessionId = (title: string): string => {
-  const stripped = title.replace(/\s*·\s*[0-9a-f]{6,}$/i, '').trim()
-  if (stripped && !/^Sessione\s+[0-9a-f]{6,}$/i.test(stripped)) return stripped
-  return 'senza nome'
-}
-
-const announceSessionText = (agent: AgentId, session: SessionInfo): string =>
-  `${AGENTS[agent].name}. ${withoutSessionId(sanitizeForSpeech(session.title, 60))}`
 
 export class Orchestrator {
   private agent: AgentId = 'claude'
@@ -123,12 +111,18 @@ export class Orchestrator {
     this.publish()
   }
 
-  /** Single announcement path, so every spoken session is traceable to its file. */
+  /**
+   * Single announcement path, so every spoken session is traceable to its
+   * file — and `lastAnnouncement` holds the very sentence that was spoken,
+   * which is what the HUD prints under the selected session.
+   */
   private announceSession(agent: AgentId, session: SessionInfo): void {
     console.info(
       `[orchestrator] ${agent} session ${session.id} (${session.state}) — ${session.path}`
     )
-    void this.speaker.speak(announceSessionText(agent, session))
+    const text = announceSessionText(agent, session, Date.now())
+    this.lastAnnouncement = text
+    void this.speaker.speak(text)
   }
 
   stop(): void {
@@ -144,9 +138,12 @@ export class Orchestrator {
     this.haptic('layer')
     this.applyLight()
     const session = state.sessions[state.index]
-    if (session) this.announceSession(agent, session)
-    else void this.speaker.speak(AGENTS[agent].name)
-    this.lastAnnouncement = session?.title ?? `${AGENTS[agent].name} (nessuna sessione)`
+    if (session) {
+      this.announceSession(agent, session)
+    } else {
+      this.lastAnnouncement = `${AGENTS[agent].name}. Nessuna sessione.`
+      void this.speaker.speak(this.lastAnnouncement)
+    }
     this.publish()
   }
 
@@ -159,12 +156,25 @@ export class Orchestrator {
       return
     }
     state.index = Math.min(state.sessions.length - 1, Math.max(0, state.index + delta))
+    this.commitSelection(state)
+  }
+
+  /** Click on a row in the HUD list; may also move to the other agent's tab. */
+  selectSessionById(agent: AgentId, id: string): void {
+    const state = this.byAgent[agent]
+    const index = state.sessions.findIndex((session) => session.id === id)
+    if (index === -1) return
+    this.agent = agent
+    state.index = index
+    this.commitSelection(state)
+  }
+
+  private commitSelection(state: AgentState): void {
     const session = state.sessions[state.index]
     state.activeId = session.id
     this.haptic('layer')
     this.applyLight()
     this.announceSession(this.agent, session)
-    this.lastAnnouncement = session.title
     this.publish()
   }
 
@@ -176,18 +186,17 @@ export class Orchestrator {
   rescan(): void {
     this.haptic('layer')
     void this.poll()
-    const session = this.byAgent[this.agent].sessions[this.byAgent[this.agent].index]
-    this.lastAnnouncement = session
-      ? `Sessione: ${session.title}`
-      : `Nessuna sessione ${AGENTS[this.agent].name} trovata`
-    if (session) this.announceSession(this.agent, session)
-    else void this.speaker.speak(`Nessuna sessione ${AGENTS[this.agent].name}`)
+    this.reannounce()
   }
 
   reannounce(): void {
     const session = this.byAgent[this.agent].sessions[this.byAgent[this.agent].index]
-    if (session) this.announceSession(this.agent, session)
-    else void this.speaker.speak(AGENTS[this.agent].name)
+    if (session) {
+      this.announceSession(this.agent, session)
+      return
+    }
+    this.lastAnnouncement = `${AGENTS[this.agent].name}. Nessuna sessione.`
+    void this.speaker.speak(this.lastAnnouncement)
   }
 
   private handleBridgeEvent(event: { type: string; payload: unknown }): void {
@@ -370,9 +379,7 @@ export class Orchestrator {
         if (agent === this.agent) {
           this.haptic('layer')
           this.applyLight()
-          const session = sessions[0]
-          this.lastAnnouncement = `Sessione: ${session.title}`
-          this.announceSession(agent, session)
+          this.announceSession(agent, sessions[0])
         }
       } else {
         // Follow the selected session across the re-sort; only if it is gone
@@ -419,10 +426,12 @@ export class Orchestrator {
     }
     if (session.state !== 'waiting' && !(session.state === 'offline' && completed)) return
     this.haptic('warning')
+    // A reply is read as the agent said it: an announcer prefix in front of it
+    // breaks the conversation. Which agent is talking is already on the light,
+    // the tab and the session announcement.
     if (session.question) {
-      const question = sanitizeForSpeech(session.question, MAX_QUESTION_SPEECH, true)
-      this.lastAnnouncement = `${name} chiede: ${question}`
-      void this.speaker.speak(`${name} chiede. ${question}`)
+      this.lastAnnouncement = sanitizeForSpeech(session.question, MAX_QUESTION_SPEECH, true)
+      void this.speaker.speak(this.lastAnnouncement)
       return
     }
     // A closing message is worth hearing only while it still fits in one
@@ -431,12 +440,14 @@ export class Orchestrator {
       ? sanitizeForSpeech(session.lastMessage, MAX_CLOSING_SPEECH + 1, true)
       : ''
     if (closing && closing.length <= MAX_CLOSING_SPEECH) {
-      this.lastAnnouncement = `${name} ha finito: ${closing}`
-      void this.speaker.speak(`${name} ha finito. ${closing}`)
+      this.lastAnnouncement = closing
+      void this.speaker.speak(closing)
       return
     }
-    this.lastAnnouncement = `${name} ha finito: ${session.title}`
-    void this.speaker.speak(`${name} ha finito.`)
+    // Too long to be an announcement: the HUD keeps the context, the speaker
+    // only says the turn is over.
+    this.lastAnnouncement = `${name} ha finito. ${session.title}.`
+    void this.speaker.speak('Ho finito.')
   }
 
   /**
@@ -481,14 +492,21 @@ export class Orchestrator {
     this.bridge.send('haptics.play', { tone })
   }
 
+  private visible(agent: AgentId): AgentSessions {
+    const state = this.byAgent[agent]
+    return {
+      sessions: state.sessions,
+      index: state.index,
+      activeSessionId: state.sessions[state.index]?.id ?? null
+    }
+  }
+
   private publish(): void {
     const state = this.byAgent[this.agent]
     const active = state.sessions[state.index]
     this.onSnapshot({
       agent: this.agent,
-      sessions: state.sessions,
-      sessionIndex: state.index,
-      activeSessionId: active?.id ?? null,
+      byAgent: { claude: this.visible('claude'), codex: this.visible('codex') },
       activeSessionState: active?.state ?? null,
       recording: this.recording,
       announcing: this.speaker.isAnnouncing,

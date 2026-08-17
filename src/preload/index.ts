@@ -18,6 +18,9 @@ const api = {
   selectSession: (delta: -1 | 1): void => {
     ipcRenderer.send('app:select-session', delta)
   },
+  selectSessionId: (agent: AgentId, id: string): void => {
+    ipcRenderer.send('app:select-session-id', { agent, id })
+  },
   toggleRecording: (): void => {
     ipcRenderer.send('app:toggle-recording')
   },
