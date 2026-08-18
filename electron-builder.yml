@@ -24,14 +24,19 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # A list here lands in Info.plist as "0"/"1"/"2" sub-dictionaries and macOS
+  # never sees the strings: extendInfo must be a mapping.
   extendInfo:
-    - NSMicrophoneUsageDescription: Agent Controller registra brevemente dal microfono del DualSense solo mentre tieni premuto il tasto mic.
-    - NSSpeechRecognitionUsageDescription: Agent Controller trascrive la tua voce per inviarla alla sessione selezionata.
-    - NSBluetoothAlwaysUsageDescription: Agent Controller si collega al DualSense via Bluetooth.
-  notarize: false
+    NSMicrophoneUsageDescription: Agent Controller records from the DualSense microphone only while you hold the mic button.
+    NSSpeechRecognitionUsageDescription: Agent Controller transcribes what you say so it can be sent to the selected session.
+    NSBluetoothAlwaysUsageDescription: Agent Controller connects to the DualSense over Bluetooth.
+  # Runs only when notarytool credentials are in the environment (see the
+  # release notes in the README); without them the build just warns and skips.
+  notarize: true
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${productName}-${version}-${arch}.${ext}
 linux:
   target:
     - AppImage
@@ -42,6 +47,3 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

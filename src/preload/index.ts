@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AgentId, AppSnapshot } from '../shared/contracts'
+import type { AgentId, AppSnapshot, SpeechLanguage } from '../shared/contracts'
 
 const api = {
   onSnapshot: (callback: (snapshot: AppSnapshot) => void): (() => void) => {
@@ -30,7 +30,10 @@ const api = {
   reannounce: (): void => {
     ipcRenderer.send('app:reannounce')
   },
-  ensureMicPermission: (): Promise<boolean> => ipcRenderer.invoke('app:ensure-mic-permission')
+  ensureMicPermission: (): Promise<boolean> => ipcRenderer.invoke('app:ensure-mic-permission'),
+  speechLanguages: (): Promise<SpeechLanguage[]> => ipcRenderer.invoke('app:speech-languages'),
+  setSpeechLanguage: (tag: string): Promise<void> =>
+    ipcRenderer.invoke('app:set-speech-language', tag)
 }
 
 export type Api = typeof api

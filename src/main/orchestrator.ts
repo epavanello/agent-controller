@@ -12,7 +12,7 @@ import type {
   SessionState
 } from '../shared/contracts'
 import { emptyController, toTransport, unavailableAudio } from '../shared/contracts'
-import { speechSettings } from './config'
+import { speechLanguage, speechSettings } from './config'
 import type { NativeBridge } from './nativeBridge'
 import { sendToSession } from './senders'
 import { SessionStore } from './sessions'
@@ -520,6 +520,7 @@ export class Orchestrator {
       controller: this.controller,
       audio: this.audio,
       bridgeAvailable: this.bridge.isAvailable,
+      speechLanguage: speechLanguage(),
       lastAnnouncement: this.lastAnnouncement,
       lastTranscription: this.lastTranscription,
       lastError: this.lastError

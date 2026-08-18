@@ -2,12 +2,12 @@ import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, systemPreferences } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { AgentIdSchema, SelectSessionRequestSchema } from '../shared/contracts'
-import type { AppSnapshot } from '../shared/contracts'
-import { loadConfig } from './config'
+import type { AppSnapshot, SpeechLanguage } from '../shared/contracts'
+import { loadConfig, setSpeechLanguage } from './config'
 import { NativeBridge } from './nativeBridge'
 import { Orchestrator } from './orchestrator'
 import { SessionStore } from './sessions'
-import { Speaker } from './speaker'
+import { installedSpeechLocales, Speaker } from './speaker'
 
 // Device-access switches must be registered before Electron becomes ready.
 app.commandLine.appendSwitch('disable-hid-blocklist')
@@ -62,6 +62,18 @@ const createWindow = (): void => {
   }
 }
 
+/**
+ * Only the locales this Mac has a voice for: offering a language macOS cannot
+ * speak would silently fall back to the wrong one.
+ */
+const speechLanguages = async (): Promise<SpeechLanguage[]> => {
+  const tags = await installedSpeechLocales()
+  return tags.map((tag) => {
+    const names = new Intl.DisplayNames([tag], { type: 'language' })
+    return { tag, label: names.of(tag) ?? tag }
+  })
+}
+
 const publishSnapshot = (snapshot: AppSnapshot): void => {
   mainWindow?.webContents.send('app:snapshot', snapshot)
 }
@@ -83,6 +95,14 @@ const registerIpc = (): void => {
   ipcMain.on('app:reannounce', () => orchestrator?.reannounce())
   ipcMain.handle('app:ensure-mic-permission', async (): Promise<boolean> => {
     return systemPreferences.askForMediaAccess('microphone')
+  })
+  ipcMain.handle('app:speech-languages', async (): Promise<SpeechLanguage[]> => speechLanguages())
+  ipcMain.handle('app:set-speech-language', async (_event, value: unknown): Promise<void> => {
+    if (typeof value !== 'string' || value.length < 2) return
+    await setSpeechLanguage(value)
+    // The next announcement picks the new voice, and the next recording the new
+    // recogniser: the HUD only has to be told the choice landed.
+    orchestrator?.publishSnapshot()
   })
 }
 

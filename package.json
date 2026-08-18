@@ -1,10 +1,11 @@
 {
   "name": "agent-controller",
   "version": "1.0.0",
-  "description": "An Electron application with Svelte and TypeScript",
+  "description": "Drive your live Claude Code and Codex sessions from a DualSense controller.",
+  "author": "Emanuele Pavanello",
+  "license": "MIT",
+  "homepage": "https://github.com/EmaDev/agent-controller",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint --cache .",

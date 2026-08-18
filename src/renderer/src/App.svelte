@@ -55,8 +55,8 @@
       <h1 class="text-base leading-tight font-semibold tracking-tight">Agent Controller</h1>
       <p class="truncate text-[11px] text-muted-foreground">
         DualSense · {sessions.length}
-        {sessions.length === 1 ? 'session' : 'sessions'}
         {meta.name}
+        {sessions.length === 1 ? 'session' : 'sessions'}
       </p>
     </div>
     <div class="app-region-no-drag flex shrink-0 gap-2">

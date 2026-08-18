@@ -89,6 +89,24 @@ export async function loadConfig(): Promise<Config> {
   return current
 }
 
+export const speechLanguage = (): string => current.speech.language
+
+/**
+ * The HUD picker writes the same file the user edits by hand, so the two never
+ * disagree; the per-direction overrides are left untouched.
+ */
+export async function setSpeechLanguage(language: string): Promise<void> {
+  current = { ...current, speech: { ...current.speech, language } }
+  const path = configPath()
+  try {
+    await mkdir(join(path, '..'), { recursive: true })
+    await writeFile(path, `${JSON.stringify(current, null, 2)}\n`, 'utf8')
+    console.info(`[config] speech language set to ${language}`)
+  } catch (error) {
+    console.warn(`[config] could not write ${path}: ${String(error)}`)
+  }
+}
+
 export const speechSettings = (): SpeechSettings => ({
   ttsLanguage: current.speech.ttsLanguage ?? current.speech.language,
   ttsVoice: current.speech.ttsVoice,

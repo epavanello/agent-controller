@@ -187,11 +187,21 @@ export const AppSnapshotSchema = z.object({
   controller: ControllerSnapshotSchema,
   audio: AudioCapabilitiesSchema,
   bridgeAvailable: z.boolean(),
+  /** BCP-47 tag used for announcements and dictation. */
+  speechLanguage: z.string(),
   lastAnnouncement: z.string().nullable(),
   lastTranscription: z.string().nullable(),
   lastError: z.string().nullable()
 })
 export type AppSnapshot = z.infer<typeof AppSnapshotSchema>
+
+export const SpeechLanguageSchema = z.object({
+  /** BCP-47 tag, as listed by `say -v '?'`. */
+  tag: z.string().min(2),
+  /** The language's own name for itself, e.g. `Italiano (Italia)`. */
+  label: z.string()
+})
+export type SpeechLanguage = z.infer<typeof SpeechLanguageSchema>
 
 /** A HUD click on a session row, which may belong to the other agent's tab. */
 export const SelectSessionRequestSchema = z.object({

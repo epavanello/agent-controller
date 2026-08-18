@@ -117,6 +117,16 @@ const voiceFor = async (settings: SpeechSettings): Promise<string | null> => {
 }
 
 /**
+ * The locales this Mac can actually speak, which is what the HUD picker should
+ * offer: a language with no installed voice would announce in the wrong one.
+ */
+export const installedSpeechLocales = async (): Promise<string[]> => {
+  const installed = await (voices ??= readVoices())
+  const tags = new Set(installed.map((voice) => voice.locale.replace('_', '-')))
+  return [...tags].sort()
+}
+
+/**
  * Serialized text-to-speech through the wired DualSense speaker: `say`
  * renders an AIFF and the native bridge plays it over the USB speaker route.
  */
