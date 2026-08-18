@@ -1,129 +1,97 @@
 <div align="center">
 
+<img src="resources/icon.svg" width="128" alt="Agent Controller icon">
+
 # Agent Controller
 
 ### Your coding agents, on a game controller.
 
-Hear what Claude Code and Codex are doing, answer them out loud, switch between them —
-without touching the keyboard.
+Hear Claude Code and Codex, answer out loud, and switch live sessions from a DualSense.
 
-![The Agent Controller HUD](docs/hud.png)
+[![Latest release](https://img.shields.io/github/v/release/epavanello/agent-controller?style=for-the-badge&color=f97316)](https://github.com/epavanello/agent-controller/releases/latest)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-38bdf8?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/epavanello/agent-controller/releases/latest)
+[![MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
+
+**[Download for Apple silicon →](https://github.com/epavanello/agent-controller/releases/latest)**
+
+![Agent Controller HUD showing Claude and Codex sessions](docs/hud.png)
 
 </div>
 
-## Why
+## Step away from the keyboard
 
-Every other multi-agent tool is a screen you have to watch, running agents _it_ spawned.
-Agent Controller drives the sessions **you already have open** — terminal, VS Code, Cursor,
-Claude Desktop — from a DualSense, across the room.
+Agent Controller connects to the Claude Code and Codex sessions you already have open in a
+terminal, VS Code, Cursor, or a desktop app. It does not spawn a second set of agents.
 
-- 🔊 **It talks.** The controller's speaker reads the agent's reply, or the question it is stuck on.
-- 🎙️ **You talk back.** Hold the mic button, say it, it lands in the live session.
-- 📳 **It taps you.** Haptics the moment an agent needs you. The light says who is working.
+- **Hear the answer.** The DualSense speaker reads the selected agent's latest reply or question.
+- **Talk back.** Hold the mic button, speak, and release to send your answer to that live session.
+- **Feel the handoff.** Haptics tell you when an agent needs attention; the light shows which agent
+  is selected.
+- **Run the room.** Jump between Claude, Codex, and their sessions without finding the right window.
 
-## The moment it pays off
+> Four agents are working. The controller buzzes and reads: “Should I drop the legacy column?”
+> Tap L1 or R1 to find the session, hold Mic, answer, and let it continue.
 
-Four agents running. You are on the couch.
+## Get started
 
-1. **Buzz.** The controller reads out loud: _"Should I drop the legacy column?"_
-2. **L1 / R1** to walk the list — every session announces itself as you land on it.
-3. **Hold Mic:** _"Yes, but keep a backup table first."_
-4. It goes into that running session and the agent keeps going. No window, no keyboard.
+1. Download the latest notarized DMG from [GitHub Releases](https://github.com/epavanello/agent-controller/releases/latest).
+2. Drag **Agent Controller** to Applications and open it.
+3. Connect a DualSense and approve Microphone and Speech Recognition when macOS asks.
 
-## It is not a second agent
+Requirements: macOS 14 or newer on Apple silicon, a Sony DualSense controller, and `claude`
+and/or `codex` available in your shell `PATH`.
 
-When a Claude session is alive, your words go into **that process's own messaging socket** —
-the same input stream its terminal or editor is holding. You are not resuming a transcript in
-a parallel process, you are typing into the agent that is already running.
-
-Offline sessions fall back to a single headless `claude --resume` / `codex exec resume`.
-Transcript files are never edited by hand.
-
-## Install
-
-macOS 14+, Node 22+, Xcode command-line tools, and `claude` and/or `codex` in your `PATH`.
-
-```sh
-git clone https://github.com/EmaDev/agent-controller && cd agent-controller
-npm install
-npm run native:build   # Swift helper for controller, speaker and mic
-npm run dev
-```
-
-Want an app instead of a dev server: `npm run native:build:release && npm run build:mac`
-drops a `.dmg` in `dist/`.
-
-> **DualSense over USB** for speaker and mic — macOS exposes no audio route for it over
-> Bluetooth. Buttons, light and haptics work either way.
+USB unlocks the controller speaker and microphone. Buttons, light, and haptics also work over
+Bluetooth, but macOS does not expose the DualSense audio devices over Bluetooth.
 
 ## Controls
 
-|                |                                         |
-| -------------- | --------------------------------------- |
-| **L2 / R2**    | Claude / Codex                          |
-| **L1 / R1**    | Previous / next session                 |
-| **Mic (hold)** | Record, release to transcribe and send  |
-| **Touchpad**   | Rescan                                  |
-| **Share**      | Say the current agent and session again |
-| **← → / ↑ ↓**  | The same, from the keyboard             |
+| Control        | Action                                 |
+| -------------- | -------------------------------------- |
+| **L2 / R2**    | Select Claude / Codex                  |
+| **L1 / R1**    | Previous / next session                |
+| **Mic (hold)** | Record; release to transcribe and send |
+| **Touchpad**   | Rescan sessions                        |
+| **Share**      | Announce the selected session again    |
+| **← → / ↑ ↓**  | The same navigation from the keyboard  |
 
-Solid light = waiting · slow pulse = working · fast pulse = recording.
-Orange is Claude, sky blue is Codex. The HUD lists all of this too.
+Orange means Claude; sky blue means Codex. A solid light means waiting, a slow pulse means
+working, and a fast pulse means recording.
 
-## Voice language
+## Voice, privacy, and live sessions
 
-The interface is English; your voice does not have to be. Pick the language in the
-**Controller** panel — it sets both the announcements and the dictation, and only lists
-languages your Mac actually has a voice for.
+Choose the announcement and dictation language in the Controller panel. Agent Controller only
+offers voices installed on your Mac, and speech recognition runs on-device through Apple's Speech
+framework.
 
-Power users: it lives in `~/Library/Application Support/Agent Controller/config.json`, where
-`ttsLanguage`, `ttsVoice` (any name from `say -v '?'`) and `sttLanguage` can be set apart
-if you want to dictate in one language and listen in another.
+When a session exposes a live messaging socket, your answer goes directly to that running process.
+Offline sessions use one headless `claude --resume` or `codex exec resume` call. Transcript files
+are discovered locally and are never edited by hand.
 
-## Good to know
+Power users can set `ttsLanguage`, `ttsVoice`, and `sttLanguage` separately in
+`~/Library/Application Support/Agent Controller/config.json`.
 
-- Transcription is on-device (`SFSpeechRecognizer`). macOS asks for Microphone and Speech
-  Recognition permission on first use.
-- In `npm run dev` macOS calls the app "Electron" — that is the stock dev bundle. A packaged
-  build is called Agent Controller.
-- A session claiming "working" but silent for minutes is shown as **stale**, not trusted.
-- If an old Claude Code process owns a session without publishing a messaging socket, sending
-  is refused rather than creating two owners. Update Claude Code and reopen it.
+## Build from source
 
-## Releasing a build others can open
-
-`npm run build:mac` signs with whatever Developer ID is in your keychain, but macOS also
-wants the app **notarized** or Gatekeeper refuses to open it on another Mac
-(`spctl -a -t exec` says _Unnotarized Developer ID_).
-
-Store the credentials once, in the keychain, so no secret ever reaches the repo:
+You need Node.js 22+ and the Xcode command-line tools.
 
 ```sh
-xcrun notarytool store-credentials agent-controller \
-  --apple-id "<the Apple ID that owns the Developer Program membership>" \
-  --team-id "<your 10-character team id>" \
-  --password "<an app-specific password from appleid.apple.com>"
+git clone https://github.com/epavanello/agent-controller.git
+cd agent-controller
+npm ci
+npm run native:build
+npm run dev
 ```
 
-Then every release is:
-
-```sh
-export APPLE_KEYCHAIN_PROFILE=agent-controller
-rm -rf dist && npm run build:mac          # signs, uploads, staples: a few minutes
-spctl -a -vvv -t exec "dist/mac-arm64/Agent Controller.app"   # expect: accepted
-```
-
-Without those variables the build still succeeds — it logs that notarization was skipped and
-produces a signed-but-unnotarized app, which is fine for running it yourself.
+Before opening a pull request, run `npm run lint`, `npm run typecheck`, and
+`swift build --package-path native`. Maintainers can find the signing and release checklist in
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## Credits
 
-The native DualSense work — HID identity, USB speaker and microphone routes, borrowing and
-restoring the default audio device — is derived from
-[codex-controller](https://github.com/ParthJadhav/codex-controller) (MIT, © Parth Jadhav), a
-sibling project by another author. That is where the idea of driving a coding agent from a
-DualSense comes from. Multi-agent discovery, live socket delivery, the orchestrator and the
-HUD are this project's own.
+The native DualSense work is derived from
+[codex-controller](https://github.com/ParthJadhav/codex-controller) by Parth Jadhav (MIT). Agent
+Controller adds multi-agent discovery, live-session delivery, the orchestrator, and the HUD.
 
-Independent project. Not affiliated with Anthropic, OpenAI or Sony.
-[MIT](LICENSE).
+Independent project. Not affiliated with Anthropic, OpenAI, or Sony. Released under the
+[MIT License](LICENSE).

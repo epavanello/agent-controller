@@ -26,7 +26,7 @@
   }
 </script>
 
-<section class="flex flex-col gap-2 rounded-xl border bg-card/40 p-3 text-xs">
+<section class="glass-panel flex flex-col gap-2 rounded-xl border p-3 text-xs">
   <div class="flex items-center justify-between gap-2">
     <h2 class="text-xs font-semibold tracking-wide uppercase">Controller</h2>
     <div class="flex items-center gap-1.5 text-[11px]">

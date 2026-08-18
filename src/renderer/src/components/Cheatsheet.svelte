@@ -12,7 +12,7 @@
   ]
 </script>
 
-<section class="rounded-xl border bg-card/40 p-3">
+<section class="glass-panel rounded-xl border p-3">
   <h2 class="mb-2 text-xs font-semibold tracking-wide uppercase">Controls</h2>
   <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
     {#each MAPPING as row (row.button)}

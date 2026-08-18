@@ -1,23 +1,23 @@
 @import 'tailwindcss';
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.145 0 0);
+  --radius: 0.7rem;
+  --background: oklch(0.14 0.025 265);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.205 0.025 265);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: oklch(0.27 0.025 265);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted: oklch(0.27 0.025 265);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.27 0.025 265);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(0.9 0.025 265 / 13%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
 }
@@ -54,6 +54,112 @@
 
 @utility app-region-no-drag {
   -webkit-app-region: no-drag;
+}
+
+@layer components {
+  .app-shell {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 13% 10%, rgb(249 115 22 / 14%), transparent 30%),
+      radial-gradient(circle at 88% 14%, rgb(56 189 248 / 13%), transparent 32%),
+      linear-gradient(145deg, #0b0d16 0%, #111425 52%, #090b12 100%);
+  }
+
+  .app-shell::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    content: '';
+    pointer-events: none;
+    opacity: 0.22;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, black, transparent 72%);
+  }
+
+  .brand-mark {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 14%),
+      0 8px 28px -8px rgb(249 115 22 / 75%),
+      10px 5px 25px -10px rgb(56 189 248 / 70%);
+  }
+
+  .live-pill {
+    border: 1px solid rgb(110 231 183 / 22%);
+    border-radius: 999px;
+    background: rgb(16 185 129 / 10%);
+    padding: 1px 6px;
+    color: rgb(110 231 183);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+
+  .hud-button {
+    border: 1px solid rgb(255 255 255 / 12%);
+    border-radius: 9px;
+    background: rgb(28 32 48 / 78%);
+    padding: 0.4rem 0.7rem;
+    color: rgb(255 255 255 / 88%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    box-shadow: inset 0 1px rgb(255 255 255 / 6%);
+    transition: 160ms ease;
+  }
+
+  .hud-button:hover {
+    transform: translateY(-1px);
+    border-color: rgb(255 255 255 / 22%);
+    background: rgb(42 47 67 / 92%);
+  }
+
+  .mic-button {
+    border-color: rgb(56 189 248 / 28%);
+    background: linear-gradient(135deg, rgb(56 189 248 / 18%), rgb(249 115 22 / 10%));
+  }
+
+  .mic-button.is-recording {
+    border-color: rgb(248 113 113 / 55%);
+    background: rgb(239 68 68 / 18%);
+    color: rgb(252 165 165);
+    box-shadow: 0 0 20px -8px rgb(239 68 68);
+  }
+
+  .glass-panel {
+    border-color: rgb(255 255 255 / 11%);
+    background: linear-gradient(145deg, rgb(32 36 54 / 72%), rgb(17 20 31 / 74%));
+    box-shadow:
+      inset 0 1px rgb(255 255 255 / 4%),
+      0 14px 36px -28px rgb(0 0 0 / 85%);
+    backdrop-filter: blur(16px);
+  }
+
+  .hero-panel {
+    background:
+      radial-gradient(
+        circle at 100% 0%,
+        color-mix(in srgb, var(--agent-color) 16%, transparent),
+        transparent 38%
+      ),
+      linear-gradient(145deg, rgb(34 38 57 / 94%), rgb(20 23 35 / 92%));
+    box-shadow: inset 0 1px rgb(255 255 255 / 7%);
+  }
+
+  .agent-orb {
+    position: relative;
+  }
+
+  .agent-orb::after {
+    position: absolute;
+    inset: 24%;
+    border-radius: inherit;
+    background: rgb(255 255 255 / 32%);
+    content: '';
+    filter: blur(4px);
+  }
 }
 
 @layer base {

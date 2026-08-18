@@ -5,6 +5,7 @@
   import Cheatsheet from './components/Cheatsheet.svelte'
   import ControllerPanel from './components/ControllerPanel.svelte'
   import SessionList from './components/SessionList.svelte'
+  import appIcon from '../../../resources/icon.svg?url'
   import { AGENTS } from '@shared/contracts'
   import type { AgentId, AppSnapshot } from '@shared/contracts'
 
@@ -49,36 +50,30 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="flex h-screen flex-col gap-3 bg-background p-4 text-sm">
+<div class="app-shell flex h-screen flex-col gap-3 overflow-hidden p-4 text-sm">
   <header class="app-region-drag flex items-center justify-between gap-3 pt-2 pl-18">
-    <div class="min-w-0">
-      <h1 class="text-base leading-tight font-semibold tracking-tight">Agent Controller</h1>
-      <p class="truncate text-[11px] text-muted-foreground">
-        DualSense · {sessions.length}
-        {meta.name}
-        {sessions.length === 1 ? 'session' : 'sessions'}
-      </p>
+    <div class="flex min-w-0 items-center gap-3">
+      <img class="brand-mark h-9 w-9 shrink-0 rounded-xl" src={appIcon} alt="" />
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-base leading-tight font-bold tracking-tight">Agent Controller</h1>
+          <span class="live-pill">LIVE HUD</span>
+        </div>
+        <p class="truncate text-[11px] text-muted-foreground">
+          DualSense online · {sessions.length}
+          {meta.name}
+          {sessions.length === 1 ? 'session' : 'sessions'}
+        </p>
+      </div>
     </div>
     <div class="app-region-no-drag flex shrink-0 gap-2">
-      <button
-        type="button"
-        class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
-        onclick={() => window.api.rescan()}
-      >
-        Rescan
-      </button>
-      <button
-        type="button"
-        class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
-        onclick={() => window.api.reannounce()}
-      >
+      <button type="button" class="hud-button" onclick={() => window.api.rescan()}> Rescan </button>
+      <button type="button" class="hud-button" onclick={() => window.api.reannounce()}>
         Announce
       </button>
       <button
         type="button"
-        class="rounded-md border px-2.5 py-1.5 text-xs transition-colors {snapshot?.recording
-          ? 'border-red-500/50 bg-red-500/20 text-red-300'
-          : 'bg-card hover:bg-secondary'}"
+        class="hud-button mic-button {snapshot?.recording ? 'is-recording' : ''}"
         onclick={() => window.api.toggleRecording()}
       >
         {snapshot?.recording ? '■ Stop mic' : '● Mic'}

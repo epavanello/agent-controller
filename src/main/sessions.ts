@@ -68,6 +68,12 @@ const CodexEventMsgSchema = z.object({
   last_agent_message: z.string().optional()
 })
 
+/**
+ * Events that only configure or rewind a thread. They can be written while no
+ * turn is running, so they are not evidence of work by themselves.
+ */
+const CODEX_IDLE_EVENTS = new Set(['thread_settings_applied', 'thread_rolled_back'])
+
 const ClaudeLineSchema = z.object({
   type: z.string().optional(),
   message: z.unknown().optional(),
@@ -221,7 +227,8 @@ function parseCodexSession(
   path: string,
   head: string,
   tail: string,
-  names: Map<string, string>
+  names: Map<string, string>,
+  previous: SessionInfo | undefined
 ): ParsedSession {
   const fallbackId = /rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/.exec(
     basename(path)
@@ -249,23 +256,50 @@ function parseCodexSession(
     }
   }
 
-  let state: SessionState = 'unknown'
-  let question: string | null = null
-  let lastMessage: string | null = null
+  // Once a long turn has produced more than TAIL_LIMIT bytes, its
+  // `task_started` record falls out of the bounded read. Keep the state found
+  // on the previous poll, and also recognise transcript activity so starting
+  // the app halfway through such a turn still reports it as working.
+  let state: SessionState = previous?.state ?? 'unknown'
+  let question: string | null = previous?.question ?? null
+  let lastMessage: string | null = previous?.lastMessage ?? null
+  let sawLifecycleEvent = false
+  let sawTurnActivity = false
   for (const line of parseableLines(tail)) {
     const parsed = CodexLineSchema.safeParse(JSON.parse(line))
-    if (!parsed.success || parsed.data.type !== 'event_msg') continue
+    if (!parsed.success) continue
+    if (parsed.data.type === 'response_item') {
+      sawTurnActivity = true
+      continue
+    }
+    if (parsed.data.type !== 'event_msg') continue
     const event = CodexEventMsgSchema.safeParse(parsed.data.payload)
     if (!event.success) continue
-    if (event.data.type === 'task_started') state = 'working'
-    else if (event.data.type === 'task_complete') {
+    if (event.data.type === 'task_started') {
+      sawLifecycleEvent = true
+      state = 'working'
+      question = null
+    } else if (event.data.type === 'task_complete') {
+      sawLifecycleEvent = true
       state = 'waiting'
       if (event.data.last_agent_message) {
         question = questionFrom(event.data.last_agent_message)
         lastMessage = event.data.last_agent_message
       }
+    } else if (event.data.type === 'turn_aborted') {
+      sawLifecycleEvent = true
+      state = 'waiting'
+      question = null
+    } else if (!CODEX_IDLE_EVENTS.has(event.data.type)) {
+      sawTurnActivity = true
     }
   }
+
+  // No lifecycle marker in this window means it is outside the bounded tail.
+  // Records such as token counts, agent messages and tool results are emitted
+  // only while Codex is processing a turn, so they recover the live state on
+  // a cold start. A terminal marker anywhere in the window always wins.
+  if (!sawLifecycleEvent && sawTurnActivity) state = 'working'
 
   return {
     id,
@@ -577,7 +611,7 @@ export class SessionStore {
       const [head, tail] = await Promise.all([readHead(path), readTail(path)])
       const parsed =
         agent === 'codex'
-          ? parseCodexSession(path, head, tail, names)
+          ? parseCodexSession(path, head, tail, names, cached?.session)
           : parseClaudeSession(path, head, tail)
       const validated = SessionStateSchema.safeParse(parsed.state)
       session = {

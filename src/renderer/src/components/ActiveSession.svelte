@@ -27,8 +27,8 @@
 </script>
 
 <section
-  class="flex flex-col gap-3 rounded-xl border bg-card p-4"
-  style="border-color: {meta.color}40; box-shadow: 0 10px 40px -30px {meta.color}"
+  class="hero-panel flex flex-col gap-3 rounded-xl border p-4"
+  style="--agent-color: {meta.color}; border-color: {meta.color}55; box-shadow: 0 18px 55px -34px {meta.color}"
 >
   <div class="flex items-center justify-between gap-2">
     <span class="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
@@ -47,7 +47,7 @@
           ? 'animate-pulse'
           : ''}"
       ></span>
-      <h2 class="flex-1 text-xl leading-tight font-bold">{session.title}</h2>
+      <h2 class="flex-1 text-[22px] leading-tight font-bold tracking-tight">{session.title}</h2>
     </div>
 
     <div class="flex flex-wrap items-center gap-2 text-[11px]">

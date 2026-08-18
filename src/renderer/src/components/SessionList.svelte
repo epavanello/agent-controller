@@ -35,7 +35,7 @@
   })
 </script>
 
-<section class="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card/40">
+<section class="glass-panel flex min-h-0 flex-col overflow-hidden rounded-xl border">
   <header class="flex items-center justify-between gap-2 border-b px-3 py-2">
     <div class="flex items-center gap-2">
       <h2 class="text-xs font-semibold tracking-wide uppercase">Sessions</h2>

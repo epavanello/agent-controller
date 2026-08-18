@@ -47,10 +47,10 @@
       aria-selected={active}
       class="group relative flex items-center gap-3 overflow-hidden rounded-xl border px-4 py-3 text-left transition-all
         {active
-        ? 'border-transparent bg-card shadow-lg'
-        : 'border-border bg-card/40 hover:bg-card/70'}"
+        ? 'border-transparent shadow-lg'
+        : 'border-border bg-card/45 hover:-translate-y-0.5 hover:bg-card/70'}"
       style={active
-        ? `border-color: ${meta.color}66; box-shadow: inset 0 0 0 1px ${meta.color}55, 0 8px 30px -18px ${meta.color}`
+        ? `border-color: ${meta.color}70; background: linear-gradient(115deg, ${meta.color}26, rgba(24, 28, 43, .94) 48%); box-shadow: inset 0 0 0 1px ${meta.color}55, 0 12px 36px -20px ${meta.color}`
         : ''}
       onclick={() => onselect(tab.id)}
     >
@@ -58,8 +58,12 @@
         <span class="absolute inset-x-0 top-0 h-0.5" style="background: {meta.color}"></span>
       {/if}
       <span
-        class="h-8 w-8 shrink-0 rounded-full transition-all {active ? '' : 'opacity-40 grayscale'}"
-        style="background: {meta.color}; box-shadow: {active ? `0 0 18px ${meta.color}` : 'none'}"
+        class="agent-orb h-9 w-9 shrink-0 rounded-full transition-all {active
+          ? ''
+          : 'opacity-40 grayscale'}"
+        style="--agent-color: {meta.color}; background: {meta.color}; box-shadow: {active
+          ? `0 0 22px ${meta.color}99`
+          : 'none'}"
       ></span>
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="flex items-center gap-2">
