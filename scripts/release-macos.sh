@@ -6,12 +6,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 publish=false
+install=false
 notes_file=""
 
 usage() {
-  echo "Usage: npm run release:mac -- [--publish] [--notes path/to/notes.md]"
+  echo "Usage: npm run release:mac -- [--install] [--publish] [--notes path/to/notes.md]"
   echo
   echo "Builds, notarizes, verifies, and checksums the current package version."
+  echo "With --install, it replaces the copy in /Applications and launches the verified build."
   echo "With --publish, it also tags the current main commit and creates the GitHub Release."
 }
 
@@ -19,6 +21,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --publish)
       publish=true
+      shift
+      ;;
+    --install)
+      install=true
       shift
       ;;
     --notes)
@@ -41,6 +47,12 @@ done
 for command in node npm swift xcrun codesign spctl shasum gh git; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
 done
+
+if [[ "$install" == true ]]; then
+  for command in ditto open osascript pgrep; do
+    command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
+  done
+fi
 
 version="$(node -p "require('./package.json').version")"
 tag="v$version"
@@ -100,6 +112,27 @@ shasum -a 256 "$dmg_path" "$zip_path" > "$checksums_path"
 
 echo "Verified artifacts:"
 ls -lh "$dmg_path" "$zip_path" "$checksums_path"
+
+if [[ "$install" == true ]]; then
+  installed_app="/Applications/Agent Controller.app"
+  if [[ -d "$installed_app" ]]; then
+    osascript -e 'tell application "Agent Controller" to quit' >/dev/null 2>&1 || true
+    for _ in {1..10}; do
+      pgrep -x "Agent Controller" >/dev/null || break
+      sleep 0.5
+    done
+    if pgrep -x "Agent Controller" >/dev/null; then
+      echo "Agent Controller is still running; close it before installing the release." >&2
+      exit 1
+    fi
+    rm -rf "$installed_app"
+  fi
+  ditto "$app_path" "$installed_app"
+  codesign --verify --deep --strict "$installed_app"
+  spctl -a -t exec "$installed_app"
+  open "$installed_app"
+  echo "Installed and launched: $installed_app"
+fi
 
 if [[ "$publish" != true ]]; then
   echo "Build complete. Re-run with --publish after committing it on main."

@@ -26,8 +26,11 @@ notarizes the app, validates Gatekeeper and Stapler, and writes the SHA-256 chec
 
 ```sh
 npm ci
-npm run release:mac
+npm run release:mac -- --install
 ```
+
+`--install` is optional. It safely closes the running app, replaces
+`/Applications/Agent Controller.app` with the verified build, validates it again, and launches it.
 
 Verify the exact app and DMG that will be uploaded:
 
@@ -47,7 +50,7 @@ Once the release commit is on `main`, the same script can create and push the ve
 publish the DMG, ZIP, and checksums:
 
 ```sh
-npm run release:mac -- --publish --notes docs/releases/v<version>.md
+npm run release:mac -- --install --publish --notes docs/releases/v<version>.md
 ```
 
 Without `--notes`, GitHub generates release notes from the commits since the previous tag. The

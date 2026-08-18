@@ -14,6 +14,8 @@ Hear Claude Code and Codex, answer out loud, and switch live sessions from a Dua
 
 **[Download for Apple silicon →](https://github.com/epavanello/agent-controller/releases/latest)**
 
+[Build from source](#build-from-source) · [Contribute](#contributing)
+
 ![Agent Controller HUD showing Claude and Codex sessions](docs/hud.png)
 
 </div>
@@ -70,6 +72,12 @@ are discovered locally and are never edited by hand.
 
 Power users can set `ttsLanguage`, `ttsVoice`, and `sttLanguage` separately in
 `~/Library/Application Support/Agent Controller/config.json`.
+
+## Contributing
+
+Ideas, bug reports, and pull requests are welcome. Open an
+[issue](https://github.com/epavanello/agent-controller/issues) for behavior changes, or send a
+focused PR with a short explanation and screenshots for UI work.
 
 ## Build from source
 
