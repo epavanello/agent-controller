@@ -38,16 +38,16 @@
 <section class="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card/40">
   <header class="flex items-center justify-between gap-2 border-b px-3 py-2">
     <div class="flex items-center gap-2">
-      <h2 class="text-xs font-semibold tracking-wide uppercase">Sessioni</h2>
+      <h2 class="text-xs font-semibold tracking-wide uppercase">Sessions</h2>
       <span class="text-[11px] text-muted-foreground">
-        {sessions.length > 0 ? `${index + 1} di ${sessions.length}` : 'nessuna'}
+        {sessions.length > 0 ? `${index + 1} of ${sessions.length}` : 'none'}
       </span>
     </div>
     <div class="flex items-center gap-1">
       <button
         type="button"
-        title="Sessione precedente (L1)"
-        aria-label="Sessione precedente"
+        title="Previous session (L1)"
+        aria-label="Previous session"
         class="rounded-md border bg-secondary px-2 py-1 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
         disabled={index <= 0}
         onclick={() => onstep(-1)}
@@ -56,8 +56,8 @@
       </button>
       <button
         type="button"
-        title="Sessione successiva (R1)"
-        aria-label="Sessione successiva"
+        title="Next session (R1)"
+        aria-label="Next session"
         class="rounded-md border bg-secondary px-2 py-1 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
         disabled={index < 0 || index >= sessions.length - 1}
         onclick={() => onstep(1)}
@@ -71,7 +71,7 @@
     bind:this={listElement}
     role="tablist"
     aria-orientation="vertical"
-    aria-label="Sessioni {AGENTS[agent].name}"
+    aria-label="{AGENTS[agent].name} sessions"
     class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2"
   >
     {#each sessions as session (session.id)}
@@ -107,7 +107,7 @@
               class="shrink-0 rounded px-1.5 py-px text-[9px] font-bold tracking-wider uppercase"
               style="background: {color}; color: #0d0f14"
             >
-              Attiva
+              Active
             </span>
           {/if}
         </div>
@@ -129,7 +129,7 @@
       </button>
     {:else}
       <p class="p-3 text-xs text-muted-foreground">
-        Nessuna sessione {AGENTS[agent].name}. Avvia una sessione CLI e premi Riscansiona.
+        No {AGENTS[agent].name} sessions. Start a CLI session and hit Rescan.
       </p>
     {/each}
   </div>

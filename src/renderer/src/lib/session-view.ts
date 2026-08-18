@@ -50,22 +50,22 @@ export const toneOf = (session: SessionInfo, now: number): StateTone =>
   STATE_TONES[displayStateOf(session, now)]
 
 export const SURFACE_LABELS = {
-  terminal: 'Terminale',
+  terminal: 'Terminal',
   vscode: 'VS Code',
   desktop: 'Desktop',
-  unknown: 'Superficie ignota'
+  unknown: 'Unknown surface'
 } as const
 
 /** Short, glanceable age of the last write to the transcript. */
 export const relativeTime = (timestamp: number, now: number): string => {
   if (!timestamp) return '—'
   const seconds = Math.max(0, Math.round((now - timestamp) / 1000))
-  if (seconds < 45) return 'adesso'
+  if (seconds < 45) return 'just now'
   const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes} min fa`
+  if (minutes < 60) return `${minutes} min ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h fa`
-  return `${Math.round(hours / 24)} g fa`
+  if (hours < 24) return `${hours} h ago`
+  return `${Math.round(hours / 24)} d ago`
 }
 
 export const shortId = (id: string): string => id.slice(0, 8)

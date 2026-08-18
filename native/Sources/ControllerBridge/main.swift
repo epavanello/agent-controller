@@ -72,7 +72,7 @@ final class BridgeApplication {
             }
             result = await DualSenseUSBSpeaker.play(fileURL: fileURL)
         case "mic.start":
-            switch await recorder.start() {
+            switch await recorder.start(localeIdentifier: command.payload["locale"] as? String) {
             case .success:
                 result = (true, "Recording started.")
             case .failure(let error):

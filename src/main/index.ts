@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, Menu, nativeTheme, systemPreferences } fro
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { AgentIdSchema, SelectSessionRequestSchema } from '../shared/contracts'
 import type { AppSnapshot } from '../shared/contracts'
+import { loadConfig } from './config'
 import { NativeBridge } from './nativeBridge'
 import { Orchestrator } from './orchestrator'
 import { SessionStore } from './sessions'
@@ -97,7 +98,8 @@ if (!hasSingleInstanceLock) {
     }
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    await loadConfig()
     electronApp.setAppUserModelId('com.agentcontroller.app')
     nativeTheme.themeSource = 'dark'
     Menu.setApplicationMenu(null)

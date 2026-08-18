@@ -47,7 +47,7 @@ function spawnHeadless(agent: AgentId, session: SessionInfo, text: string): Prom
     child.stderr.on('data', collect)
     child.once('error', (error) => {
       console.error(`[senders] ${binaryFor[agent]} failed to start: ${error.message}`)
-      resolve({ sent: false, message: `${binaryFor[agent]} non è partito: ${error.message}` })
+      resolve({ sent: false, message: `${binaryFor[agent]} failed to start: ${error.message}` })
     })
     child.once('spawn', () => {
       resolve({ sent: true, mode: 'headless-resume' })

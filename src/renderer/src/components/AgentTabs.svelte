@@ -36,7 +36,7 @@
   }
 </script>
 
-<div role="tablist" aria-label="Agente" class="grid grid-cols-2 gap-3">
+<div role="tablist" aria-label="Agent" class="grid grid-cols-2 gap-3">
   {#each ORDER as tab (tab.id)}
     {@const meta = AGENTS[tab.id]}
     {@const active = snapshot.agent === tab.id}
@@ -73,20 +73,17 @@
           </span>
         </span>
         <span class="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-          <span>{summary.total} {summary.total === 1 ? 'sessione' : 'sessioni'}</span>
+          <span>{summary.total} {summary.total === 1 ? 'session' : 'sessions'}</span>
           {#if summary.working > 0}
-            <span class="text-emerald-400">
-              ● {summary.working}
-              {summary.working === 1 ? 'attiva' : 'attive'}
-            </span>
+            <span class="text-emerald-400">● {summary.working} active</span>
           {/if}
           {#if summary.questions > 0}
             <span class="text-orange-400">
               ? {summary.questions}
-              {summary.questions === 1 ? 'domanda' : 'domande'}
+              {summary.questions === 1 ? 'question' : 'questions'}
             </span>
           {:else if summary.waiting > 0}
-            <span class="text-amber-400">◐ {summary.waiting} in attesa</span>
+            <span class="text-amber-400">◐ {summary.waiting} waiting</span>
           {/if}
         </span>
       </span>

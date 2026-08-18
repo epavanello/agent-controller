@@ -29,16 +29,16 @@ export const STALE_WORKING_AFTER_MILLISECONDS = 5 * 60_000
 
 /**
  * Past this much silence any recorded state is too old to trust. Waiting for
- * an answer stays "in attesa" meanwhile: that is still what it is doing.
+ * an answer stays "waiting" meanwhile: that is still what it is doing.
  */
 export const STALE_AFTER_MILLISECONDS = 6 * 60 * 60_000
 
 export const SESSION_STATE_LABELS: Record<SessionDisplayState, string> = {
-  working: 'Sta lavorando',
-  waiting: 'In attesa',
+  working: 'Working',
+  waiting: 'Waiting',
   stale: 'Stale',
   offline: 'Offline',
-  unknown: 'Sconosciuto'
+  unknown: 'Unknown'
 }
 
 /**
@@ -99,8 +99,8 @@ export const sanitizeForSpeech = (text: string, limit: number, replacePaths = fa
   const cleaned = text
     .split(/\s+/)
     .map((token) => {
-      if (looksLikeUrl(token)) return replacePaths ? 'un link' : ''
-      if (looksLikePath(token)) return replacePaths ? 'il percorso' : ''
+      if (looksLikeUrl(token)) return replacePaths ? 'a link' : ''
+      if (looksLikePath(token)) return replacePaths ? 'a path' : ''
       return token
     })
     .filter((token) => token.length > 0)
@@ -162,8 +162,8 @@ export const AudioCapabilitiesSchema = z.object({
 export type AudioCapabilities = z.infer<typeof AudioCapabilitiesSchema>
 
 export const unavailableAudio: AudioCapabilities = {
-  speaker: { available: false, reason: 'Sconosciuto' },
-  microphone: { available: false, reason: 'Sconosciuto' }
+  speaker: { available: false, reason: 'Unknown' },
+  microphone: { available: false, reason: 'Unknown' }
 }
 
 /** One agent's session list plus the selection L1/R1 moves through it. */

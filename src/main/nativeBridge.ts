@@ -217,7 +217,7 @@ export class NativeBridge extends EventEmitter {
     if (!child || !this.available) {
       return Promise.resolve({
         success: false,
-        message: 'Il bridge nativo non è disponibile.'
+        message: 'The native bridge is unavailable.'
       })
     }
     const id = crypto.randomUUID()
@@ -226,13 +226,13 @@ export class NativeBridge extends EventEmitter {
       const timer = setTimeout(() => {
         this.pending.delete(id)
         console.warn(`[native bridge] Command timed out: ${command}`)
-        resolve({ success: false, message: 'Il comando nativo è scaduto.' })
+        resolve({ success: false, message: 'The native command timed out.' })
       }, timeoutMilliseconds)
       this.pending.set(id, { command, resolve, timer })
       if (!this.write(child, value)) {
         clearTimeout(timer)
         this.pending.delete(id)
-        resolve({ success: false, message: 'Il bridge nativo non è disponibile.' })
+        resolve({ success: false, message: 'The native bridge is unavailable.' })
       }
     })
   }
@@ -288,11 +288,11 @@ export class NativeBridge extends EventEmitter {
       this.restartAwaitingReadiness = false
       this.stdoutLines.reset()
       this.stderrLines.reset()
-      this.failPending('Il bridge nativo si è fermato inaspettatamente.')
-      this.handleFailure(`Il bridge nativo è fallito: ${describeError(error)}.`)
+      this.failPending('The native bridge stopped unexpectedly.')
+      this.handleFailure(`The native bridge failed: ${describeError(error)}.`)
     })
     child.stdin.on('error', (error: Error) => {
-      this.reportError(`Il bridge nativo non accetta più comandi: ${describeError(error)}`)
+      this.reportError(`The native bridge no longer accepts commands: ${describeError(error)}`)
     })
     child.once('exit', (code, signal) => {
       if (terminalHandled) return
@@ -308,15 +308,13 @@ export class NativeBridge extends EventEmitter {
     this.restartAwaitingReadiness = false
     this.stdoutLines.reset()
     this.stderrLines.reset()
-    this.failPending('Il bridge nativo si è fermato inaspettatamente.')
+    this.failPending('The native bridge stopped unexpectedly.')
 
     if (this.stopping) {
       console.info('[native bridge] Helper exited during shutdown', { code, signal })
       return
     }
-    this.handleFailure(
-      `Il bridge nativo si è fermato inaspettatamente (${describeExit(code, signal)}).`
-    )
+    this.handleFailure(`The native bridge stopped unexpectedly (${describeExit(code, signal)}).`)
   }
 
   private handleFailure(message: string): void {

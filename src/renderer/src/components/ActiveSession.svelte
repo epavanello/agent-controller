@@ -33,7 +33,7 @@
   <div class="flex items-center justify-between gap-2">
     <span class="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
       <span class="h-2.5 w-2.5 rounded-full" style="background: {meta.color}"></span>
-      Sessione selezionata
+      Selected session
     </span>
     <span class="text-[11px] text-muted-foreground">
       {total > 0 ? `${position + 1} / ${total}` : '—'} · L1 / R1
@@ -63,7 +63,7 @@
         </span>
       {/if}
       <span class="text-muted-foreground">
-        aggiornata {relativeTime(session.updatedAt, now)}
+        updated {relativeTime(session.updatedAt, now)}
       </span>
       <span class="ml-auto font-mono text-muted-foreground opacity-70">
         #{shortId(session.id)}
@@ -82,17 +82,17 @@
 
     {#if session.question}
       <div class="rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-xs">
-        <p class="mb-1 font-semibold text-orange-400">Domanda aperta</p>
+        <p class="mb-1 font-semibold text-orange-400">Open question</p>
         <p class="line-clamp-4 leading-relaxed">{session.question}</p>
       </div>
     {:else if session.lastMessage}
       <div class="rounded-lg border bg-background/40 p-3 text-xs">
-        <p class="mb-1 font-semibold text-muted-foreground">Ultimo messaggio</p>
+        <p class="mb-1 font-semibold text-muted-foreground">Last message</p>
         <p class="line-clamp-4 leading-relaxed">{session.lastMessage}</p>
       </div>
     {:else}
       <p class="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-        Nessun messaggio di chiusura registrato.
+        No closing message recorded.
       </p>
     {/if}
 
@@ -104,7 +104,7 @@
     {/if}
   {:else}
     <p class="py-6 text-center text-xs text-muted-foreground">
-      Nessuna sessione {meta.name} selezionata.
+      No {meta.name} session selected.
     </p>
   {/if}
 </section>

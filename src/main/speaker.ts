@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { speechSettings } from './config'
+import type { SpeechSettings } from './config'
 import type { NativeBridge } from './nativeBridge'
 
 const run = (
@@ -13,7 +15,7 @@ const run = (
     const child = spawn(executable, args, { stdio: 'ignore' })
     const timer = setTimeout(() => {
       child.kill()
-      resolve({ success: false, message: `${executable} è scaduto.` })
+      resolve({ success: false, message: `${executable} timed out.` })
     }, timeoutMilliseconds)
     child.on('error', (error) => {
       clearTimeout(timer)
@@ -23,10 +25,96 @@ const run = (
       clearTimeout(timer)
       resolve({
         success: code === 0,
-        message: code === 0 ? 'Fatto.' : `${executable} è uscito con codice ${code}.`
+        message: code === 0 ? 'Done.' : `${executable} exited with code ${code}.`
       })
     })
   })
+
+interface Voice {
+  name: string
+  /** As `say` prints it: `it_IT`, `en_US`. */
+  locale: string
+}
+
+/**
+ * `say -v '?'` prints `Name locale  # sample sentence`, one voice per line. The
+ * name may hold spaces and brackets (`Eddy (English (UK)) en_GB`), so the line
+ * is anchored on the locale that precedes the sample instead.
+ */
+const VOICE_LINE = /^(.+?)\s+([A-Za-z]{2,4}[_-][A-Za-z0-9]{2,4})\s+#/
+
+const readVoices = (): Promise<Voice[]> =>
+  new Promise((resolve) => {
+    const child = spawn('/usr/bin/say', ['-v', '?'], { stdio: ['ignore', 'pipe', 'ignore'] })
+    const chunks: string[] = []
+    const timer = setTimeout(() => child.kill(), 5_000)
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk.toString()))
+    child.on('error', () => {
+      clearTimeout(timer)
+      resolve([])
+    })
+    child.on('exit', () => {
+      clearTimeout(timer)
+      const voices: Voice[] = []
+      for (const line of chunks.join('').split('\n')) {
+        const match = VOICE_LINE.exec(line.trim())
+        if (match) voices.push({ name: match[1].trim(), locale: match[2].replace('-', '_') })
+      }
+      resolve(voices)
+    })
+  })
+
+/** The voice the user picked in System Settings, which `say` uses by default. */
+const readSystemVoice = (): Promise<string | null> =>
+  new Promise((resolve) => {
+    const child = spawn(
+      '/usr/bin/defaults',
+      ['read', 'com.apple.speech.voice.prefs', 'SelectedVoiceName'],
+      { stdio: ['ignore', 'pipe', 'ignore'] }
+    )
+    const chunks: string[] = []
+    const timer = setTimeout(() => child.kill(), 5_000)
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk.toString()))
+    child.on('error', () => {
+      clearTimeout(timer)
+      resolve(null)
+    })
+    child.on('exit', (code) => {
+      clearTimeout(timer)
+      const name = chunks.join('').trim()
+      resolve(code === 0 && name ? name : null)
+    })
+  })
+
+const systemLocale = (): string => Intl.DateTimeFormat().resolvedOptions().locale
+
+/** Neither value changes while the app runs: read each one once. */
+let voices: Promise<Voice[]> | null = null
+let systemVoice: Promise<string | null> | null = null
+
+const languageOf = (locale: string): string => locale.toLowerCase().replace('-', '_').split('_')[0]
+
+/**
+ * The voice named in the config wins. Otherwise the voice macOS already speaks
+ * with, as long as it speaks the configured language: replacing the user's own
+ * voice with an arbitrary same-language one would be a downgrade. Failing that,
+ * the first installed voice for the exact locale, then for the language in any
+ * region.
+ */
+const voiceFor = async (settings: SpeechSettings): Promise<string | null> => {
+  if (settings.ttsVoice) return settings.ttsVoice
+  const wanted = settings.ttsLanguage.replace('-', '_').toLowerCase()
+  const language = languageOf(wanted)
+  const installed = await (voices ??= readVoices())
+  const preferred = await (systemVoice ??= readSystemVoice())
+  // No voice chosen in System Settings: `say` speaks with the default for the
+  // Mac's own language, which is the better voice whenever it fits.
+  const spoken = installed.find((voice) => voice.name === preferred)?.locale ?? systemLocale()
+  if (languageOf(spoken) === language) return null
+  const exact = installed.find((voice) => voice.locale.toLowerCase() === wanted)
+  if (exact) return exact.name
+  return installed.find((voice) => languageOf(voice.locale) === language)?.name ?? null
+}
 
 /**
  * Serialized text-to-speech through the wired DualSense speaker: `say`
@@ -57,7 +145,9 @@ export class Speaker {
     const directory = await mkdtemp(join(tmpdir(), 'agent-controller-tts-'))
     const file = join(directory, 'announcement.aiff')
     try {
-      const rendered = await run('/usr/bin/say', ['-o', file, trimmed], 20_000)
+      const voice = await voiceFor(speechSettings())
+      const arguments_ = voice ? ['-v', voice, '-o', file, trimmed] : ['-o', file, trimmed]
+      const rendered = await run('/usr/bin/say', arguments_, 20_000)
       if (!rendered.success) {
         console.warn(`[speaker] TTS generation failed: ${rendered.message}`)
         return

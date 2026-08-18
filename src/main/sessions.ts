@@ -126,7 +126,7 @@ const isSessionLine = (line: string): boolean => {
  */
 const fallbackTitle = (cwd: string | null): string => {
   const base = cwd?.split('/').filter(Boolean).pop()
-  return base ?? 'Sessione senza nome'
+  return base ?? 'Untitled session'
 }
 
 /** A title short enough to be read aloud, or null when nothing usable is left. */
@@ -596,7 +596,7 @@ export class SessionStore {
       session = {
         id: basename(path).replace(/\.jsonl$/, ''),
         path,
-        title: `Sessione ${basename(path).slice(0, 8)}`,
+        title: `Session ${basename(path).slice(0, 8)}`,
         cwd: null,
         updatedAt: stamp.mtimeMs,
         state: 'unknown',

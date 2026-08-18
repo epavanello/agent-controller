@@ -16,7 +16,7 @@
         aria-hidden="true"
       ></span>
       <span class="text-muted-foreground">
-        {connected ? snapshot.controller.transport : 'Disconnesso'}
+        {connected ? snapshot.controller.transport : 'Disconnected'}
       </span>
       {#if connected && snapshot.controller.batteryLevel != null}
         <span class="text-muted-foreground">
@@ -27,24 +27,24 @@
   </div>
 
   <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-    {@render Capability('Cassa', snapshot.audio.speaker.available, snapshot.audio.speaker.reason)}
+    {@render Capability('Speaker', snapshot.audio.speaker.available, snapshot.audio.speaker.reason)}
     {@render Capability(
-      'Microfono',
+      'Microphone',
       snapshot.audio.microphone.available,
       snapshot.audio.microphone.reason
     )}
-    {@render Capability('Luce', snapshot.controller.supportsLight, '')}
-    {@render Capability('Vibrazione', snapshot.controller.supportsHaptics, '')}
+    {@render Capability('Light', snapshot.controller.supportsLight, '')}
+    {@render Capability('Haptics', snapshot.controller.supportsHaptics, '')}
     {@render Capability(
-      'Bridge nativo',
+      'Native bridge',
       snapshot.bridgeAvailable,
-      snapshot.bridgeAvailable ? '' : 'Helper non in esecuzione'
+      snapshot.bridgeAvailable ? '' : 'Helper not running'
     )}
   </div>
 
   {#if connected && !isUsb}
     <p class="text-[11px] text-muted-foreground">
-      In Bluetooth cassa e microfono non sono disponibili: collega il cavo USB per annunci e voce.
+      Over Bluetooth the speaker and mic are unavailable: plug in USB for announcements and voice.
     </p>
   {/if}
 </section>

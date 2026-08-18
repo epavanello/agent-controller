@@ -55,7 +55,7 @@
       <h1 class="text-base leading-tight font-semibold tracking-tight">Agent Controller</h1>
       <p class="truncate text-[11px] text-muted-foreground">
         DualSense · {sessions.length}
-        {sessions.length === 1 ? 'sessione' : 'sessioni'}
+        {sessions.length === 1 ? 'session' : 'sessions'}
         {meta.name}
       </p>
     </div>
@@ -65,14 +65,14 @@
         class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
         onclick={() => window.api.rescan()}
       >
-        Riscansiona
+        Rescan
       </button>
       <button
         type="button"
         class="rounded-md border bg-card px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary"
         onclick={() => window.api.reannounce()}
       >
-        Riannuncia
+        Announce
       </button>
       <button
         type="button"
@@ -116,12 +116,12 @@
             <section class="flex flex-col gap-2 rounded-xl border bg-card/40 p-3 text-xs">
               {#if snapshot.recording}
                 <p class="font-medium text-red-400">
-                  ● Registrazione dal mic del controller — rilascia per inviare
+                  ● Recording from the controller mic — release to send
                 </p>
               {/if}
               {#if snapshot.lastTranscription}
                 <p class="line-clamp-2">
-                  <span class="text-muted-foreground">Ultimo parlato inviato: </span>
+                  <span class="text-muted-foreground">Last speech sent: </span>
                   {snapshot.lastTranscription}
                 </p>
               {/if}
@@ -142,7 +142,7 @@
     </main>
   {:else}
     <div class="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-      Avvio dell'orchestratore…
+      Starting the orchestrator…
     </div>
   {/if}
 </div>

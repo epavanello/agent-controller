@@ -139,7 +139,7 @@ async function validateOwner(owner: ClaudeLiveOwner): Promise<boolean> {
 }
 
 const keyPathFor = (owner: ClaudeLiveOwner): string => {
-  if (owner.socketPath === null) throw new Error('La sessione non pubblica un socket messaggi.')
+  if (owner.socketPath === null) throw new Error('The session publishes no messaging socket.')
   const canonicalSocket = resolve(owner.socketPath)
   const hash = createHash('sha256').update(canonicalSocket).digest('hex')
   return join(CLAUDE_SESSIONS_ROOT, `${owner.pid}.${hash}.key`)
@@ -149,9 +149,9 @@ async function readPeerToken(owner: ClaudeLiveOwner): Promise<string> {
   const keyPath = keyPathFor(owner)
   await access(keyPath, constants.R_OK)
   const parsed = MessagingKeySchema.safeParse(JSON.parse(await readFile(keyPath, 'utf8')))
-  if (!parsed.success) throw new Error('La chiave del socket Claude non è valida.')
+  if (!parsed.success) throw new Error('The Claude socket key is not valid.')
   if (parsed.data.procStart && owner.procStart && parsed.data.procStart !== owner.procStart) {
-    throw new Error('La chiave appartiene a un processo Claude precedente.')
+    throw new Error('The key belongs to an earlier Claude process.')
   }
   return parsed.data.peerToken
 }
@@ -168,7 +168,7 @@ async function writeSocket(path: string, payload: string): Promise<void> {
       else resolvePromise()
     }
     socket.setTimeout(CONNECT_TIMEOUT_MILLISECONDS, () => {
-      settle(new Error('Timeout collegandosi al socket della sessione Claude.'))
+      settle(new Error('Timed out connecting to the Claude session socket.'))
     })
     socket.once('error', (error) => settle(error))
     socket.once('connect', () => {
@@ -189,13 +189,13 @@ export async function sendToLiveClaudeSession(
     const version = matching[0]?.version
     return {
       sent: false,
-      message: `La sessione Claude è viva ma non espone il socket messaggi${version ? ` (Claude ${version})` : ''}. Aggiorna Claude Code e riaprila.`
+      message: `The Claude session is live but exposes no messaging socket${version ? ` (Claude ${version})` : ''}. Update Claude Code and reopen it.`
     }
   }
   if (routable.length > 1) {
     return {
       sent: false,
-      message: `Più processi Claude possiedono contemporaneamente la sessione ${sessionId.slice(0, 8)}; invio rifiutato per evitare uno split-brain.`
+      message: `Several Claude processes own session ${sessionId.slice(0, 8)} at once; delivery refused to avoid a split brain.`
     }
   }
 
@@ -203,13 +203,13 @@ export async function sendToLiveClaudeSession(
   if (!(await validateOwner(owner))) {
     return {
       sent: false,
-      message: 'Il processo proprietario della sessione Claude non è più attivo.'
+      message: 'The process that owns this Claude session is no longer running.'
     }
   }
   if (owner.peerProtocol !== null && owner.peerProtocol !== SUPPORTED_PEER_PROTOCOL) {
     return {
       sent: false,
-      message: `La sessione usa il protocollo messaggi Claude ${owner.peerProtocol}, ma Agent Controller supporta il protocollo ${SUPPORTED_PEER_PROTOCOL}.`
+      message: `The session speaks Claude messaging protocol ${owner.peerProtocol}, but Agent Controller supports protocol ${SUPPORTED_PEER_PROTOCOL}.`
     }
   }
 

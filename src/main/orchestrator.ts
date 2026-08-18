@@ -12,6 +12,7 @@ import type {
   SessionState
 } from '../shared/contracts'
 import { emptyController, toTransport, unavailableAudio } from '../shared/contracts'
+import { speechSettings } from './config'
 import type { NativeBridge } from './nativeBridge'
 import { sendToSession } from './senders'
 import { SessionStore } from './sessions'
@@ -20,7 +21,7 @@ import type { Speaker } from './speaker'
 const POLL_INTERVAL_MILLISECONDS = 2_500
 const MAX_RECORDING_MILLISECONDS = 30_000
 const MAX_QUESTION_SPEECH = 220
-/** Longer than this, a closing message is summarised as "ha finito". */
+/** Longer than this, a closing message is summarised as "finished". */
 const MAX_CLOSING_SPEECH = 220
 const PULSE_INTERVAL_MILLISECONDS = 300
 
@@ -141,7 +142,7 @@ export class Orchestrator {
     if (session) {
       this.announceSession(agent, session)
     } else {
-      this.lastAnnouncement = `${AGENTS[agent].name}. Nessuna sessione.`
+      this.lastAnnouncement = `${AGENTS[agent].name}. No sessions.`
       void this.speaker.speak(this.lastAnnouncement)
     }
     this.publish()
@@ -151,7 +152,7 @@ export class Orchestrator {
     const state = this.byAgent[this.agent]
     if (state.sessions.length === 0) {
       this.haptic('failure')
-      this.lastError = `Nessuna sessione ${AGENTS[this.agent].name} trovata.`
+      this.lastError = `No ${AGENTS[this.agent].name} session found.`
       this.publish()
       return
     }
@@ -195,7 +196,7 @@ export class Orchestrator {
       this.announceSession(this.agent, session)
       return
     }
-    this.lastAnnouncement = `${AGENTS[this.agent].name}. Nessuna sessione.`
+    this.lastAnnouncement = `${AGENTS[this.agent].name}. No sessions.`
     void this.speaker.speak(this.lastAnnouncement)
   }
 
@@ -261,14 +262,14 @@ export class Orchestrator {
       if (this.recording) return
       if (!this.audio.microphone.available) {
         this.haptic('warning')
-        this.lastError = `Mic e cassa richiedono il cavo USB. (${this.audio.microphone.reason})`
+        this.lastError = `Mic and speaker need the USB cable. (${this.audio.microphone.reason})`
         this.publish()
         return
       }
       const session = this.activeSession()
       if (!session) {
         this.haptic('warning')
-        this.lastError = `Nessuna sessione ${AGENTS[this.agent].name} selezionata.`
+        this.lastError = `No ${AGENTS[this.agent].name} session selected.`
         this.publish()
         return
       }
@@ -280,7 +281,13 @@ export class Orchestrator {
 
   private async startRecording(): Promise<void> {
     this.haptic('success')
-    const result = await this.bridge.request('mic.start', undefined, 15_000)
+    // The recogniser needs the spoken language up front: the system one is
+    // whatever the Mac is set to, which turns foreign speech into nonsense.
+    const result = await this.bridge.request(
+      'mic.start',
+      { locale: speechSettings().sttLanguage },
+      15_000
+    )
     if (!result.success) {
       this.haptic('warning')
       this.lastError = result.message
@@ -313,13 +320,13 @@ export class Orchestrator {
     const session = this.activeSession()
     if (!transcription) {
       this.haptic('warning')
-      this.lastError = 'Nessun parlato rilevato.'
+      this.lastError = 'No speech detected.'
       this.publish()
       return
     }
     if (!session) {
       this.haptic('warning')
-      this.lastError = `Nessuna sessione ${AGENTS[this.agent].name} selezionata.`
+      this.lastError = `No ${AGENTS[this.agent].name} session selected.`
       this.publish()
       return
     }
@@ -327,12 +334,12 @@ export class Orchestrator {
     if (!delivery.sent) {
       this.haptic('failure')
       this.lastError = delivery.message
-      void this.speaker.speak(`Invio a ${AGENTS[this.agent].name} fallito.`)
+      void this.speaker.speak(`Delivery to ${AGENTS[this.agent].name} failed.`)
       this.publish()
       return
     }
     this.haptic('success')
-    this.lastAnnouncement = `Inviato a ${AGENTS[this.agent].name}: ${session.title}`
+    this.lastAnnouncement = `Sent to ${AGENTS[this.agent].name}: ${session.title}`
     this.lastError = null
     this.publish()
   }
@@ -345,7 +352,7 @@ export class Orchestrator {
   private startRecordingTimer(): void {
     this.stopRecordingTimer()
     this.recordingTimer = setTimeout(() => {
-      this.lastError = 'Registrazione interrotta (limite 30s).'
+      this.lastError = 'Recording stopped (30s limit).'
       void this.finishRecording(false)
     }, MAX_RECORDING_MILLISECONDS)
   }
@@ -421,7 +428,7 @@ export class Orchestrator {
   private announceActivity(session: SessionInfo, completed = false): void {
     const name = AGENTS[this.agent].name
     if (session.state === 'working') {
-      this.lastAnnouncement = `${name} sta lavorando: ${session.title}`
+      this.lastAnnouncement = `${name} is working: ${session.title}`
       return
     }
     if (session.state !== 'waiting' && !(session.state === 'offline' && completed)) return
@@ -446,8 +453,8 @@ export class Orchestrator {
     }
     // Too long to be an announcement: the HUD keeps the context, the speaker
     // only says the turn is over.
-    this.lastAnnouncement = `${name} ha finito. ${session.title}.`
-    void this.speaker.speak('Ho finito.')
+    this.lastAnnouncement = `${name} finished. ${session.title}.`
+    void this.speaker.speak('Done.')
   }
 
   /**

@@ -17,8 +17,8 @@ final class VoiceRecorder {
     private var previousInput: AudioDeviceID?
     private(set) var isRecording = false
 
-    /// Tried in order; the system locale is the last resort.
-    private static let preferredLocales = [Locale(identifier: "it-IT")]
+    /// Set per recording by the caller; the system locale is the last resort.
+    private var preferredLocale: Locale?
 
     enum RecorderError: LocalizedError {
         case alreadyRecording
@@ -44,8 +44,13 @@ final class VoiceRecorder {
         }
     }
 
-    func start() async -> Result<Void, Error> {
+    /// - Parameter localeIdentifier: BCP-47 tag of the spoken language, as
+    ///   configured by the user. Empty or unknown falls back to the system one.
+    func start(localeIdentifier: String?) async -> Result<Void, Error> {
         guard !isRecording else { return .failure(RecorderError.alreadyRecording) }
+        preferredLocale = localeIdentifier.flatMap { identifier in
+            identifier.isEmpty ? nil : Locale(identifier: identifier)
+        }
         guard await requestSpeechAuthorization() == .authorized else {
             return .failure(RecorderError.speechAuthorizationDenied)
         }
@@ -130,13 +135,14 @@ final class VoiceRecorder {
     }
 
     /// The system locale is whatever the Mac is set to — often English, which
-    /// turns Italian speech into nonsense words. The spoken language of this
-    /// app is fixed, so the recogniser follows it and only falls back to the
-    /// system when that locale has no recogniser installed.
+    /// turns speech in any other language into nonsense words. The configured
+    /// language wins, and the system is used only when that locale has no
+    /// recogniser installed.
     private func makeRecognizer() -> SFSpeechRecognizer? {
-        for locale in Self.preferredLocales {
-            guard let recognizer = SFSpeechRecognizer(locale: locale) else { continue }
-            if recognizer.isAvailable { return recognizer }
+        if let locale = preferredLocale,
+           let recognizer = SFSpeechRecognizer(locale: locale),
+           recognizer.isAvailable {
+            return recognizer
         }
         return SFSpeechRecognizer()
     }
