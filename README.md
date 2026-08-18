@@ -67,8 +67,10 @@ offers voices installed on your Mac, and speech recognition runs on-device throu
 framework.
 
 When a session exposes a live messaging socket, your answer goes directly to that running process.
-Offline sessions use one headless `claude --resume` or `codex exec resume` call. Transcript files
-are discovered locally and are never edited by hand.
+Codex Desktop and Agent Controller share Codex's local app-server daemon so new turns also appear
+immediately in the open thread. After installing or upgrading Agent Controller, quit and reopen
+Codex once to enable that shared connection. Offline sessions use one headless `claude --resume`
+or `codex exec resume` call. Transcript files are discovered locally and are never edited by hand.
 
 Power users can set `ttsLanguage`, `ttsVoice`, and `sttLanguage` separately in
 `~/Library/Application Support/Agent Controller/config.json`.

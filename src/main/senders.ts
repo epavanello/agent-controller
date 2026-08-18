@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { Readable } from 'node:stream'
 import type { AgentId, SessionInfo } from '../shared/contracts'
 import { sendToLiveClaudeSession } from './claudeLive'
+import { sendToLiveCodexSession } from './codexLive'
 
 /** Electron launched from Finder does not inherit the user's shell PATH. */
 const EXTRA_BIN = [join(homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
@@ -11,7 +12,8 @@ const MAX_OUTPUT_CHUNKS = 40
 const OUTPUT_LOG_LIMIT = 500
 
 export type SendResult =
-  { sent: true; mode: 'live-socket' | 'headless-resume' } | { sent: false; message: string }
+  | { sent: true; mode: 'live-socket' | 'live-daemon' | 'headless-resume' }
+  | { sent: false; message: string }
 
 const unreference = (stream: Readable | null): void => {
   ;(stream as (Readable & { unref?: () => void }) | null)?.unref?.()
@@ -72,6 +74,11 @@ export async function sendToSession(
     const live = await sendToLiveClaudeSession(session.id, text)
     if (live.sent) return { sent: true, mode: 'live-socket' }
     if (live.message !== 'offline') return live
+  }
+  if (agent === 'codex') {
+    const live = await sendToLiveCodexSession(session.id, text)
+    if (live.sent) return { sent: true, mode: 'live-daemon' }
+    if (!live.fallback) return { sent: false, message: live.message }
   }
   return spawnHeadless(agent, session, text)
 }

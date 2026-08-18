@@ -4,6 +4,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { AgentIdSchema, SelectSessionRequestSchema } from '../shared/contracts'
 import type { AppSnapshot, SpeechLanguage } from '../shared/contracts'
 import { loadConfig, setSpeechLanguage } from './config'
+import { prepareCodexLive, stopCodexLive } from './codexLive'
 import { NativeBridge } from './nativeBridge'
 import { Orchestrator } from './orchestrator'
 import { SessionStore } from './sessions'
@@ -134,6 +135,14 @@ if (!hasSingleInstanceLock) {
     orchestrator = new Orchestrator(nativeBridge, sessionStore, speaker, publishSnapshot)
     orchestrator.start()
     void nativeBridge.start()
+    // Set the daemon environment before the user opens Codex. If Codex was
+    // already running, delivery reports the writer conflict and asks for one
+    // clean restart instead of silently creating invisible headless turns.
+    void prepareCodexLive().catch((error) => {
+      console.warn(
+        `[codex live] Bootstrap failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -147,5 +156,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   orchestrator?.stop()
+  stopCodexLive()
   nativeBridge.stop()
 })
