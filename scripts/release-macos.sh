@@ -107,6 +107,11 @@ done
 
 codesign --verify --deep --strict --verbose=2 "$app_path"
 spctl -a -vvv -t exec "$app_path"
+# electron-builder notarizes the application before packaging it, but the DMG
+# is a separate distributable and needs its own ticket before stapler can
+# validate it offline.
+xcrun notarytool submit "$dmg_path" --keychain-profile "$profile" --wait
+xcrun stapler staple "$dmg_path"
 xcrun stapler validate "$dmg_path"
 shasum -a 256 "$dmg_path" "$zip_path" > "$checksums_path"
 
